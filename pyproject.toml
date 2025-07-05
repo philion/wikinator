@@ -1,0 +1,15 @@
+[project]
+name = "doc-test"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.13"
+dependencies = [
+    "dotenv>=0.9.9",
+    "google-api-python-client>=2.175.0",
+    "google-auth-httplib2>=0.2.0",
+    "google-auth-oauthlib>=1.2.2",
+    "gql[all]>=3.5.3",
+    "markitdown[all]>=0.1.2",
+    "typer-slim>=0.16.0",
+]
