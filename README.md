@@ -72,6 +72,8 @@ Now looking over the DOCX XML format to see how much I can scrape out.
 https://learn.microsoft.com/en-us/dotnet/api/documentformat.openxml.wordprocessing.fontsizecomplexscript?view=openxml-3.0.1
 
 Added detection for strikethru and Courier New (as "code font").
+
+This is good enough for v0.2!
 ```
 
 
