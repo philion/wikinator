@@ -189,9 +189,7 @@ def parse_run(run, images):
             text = f"~~{text}~~"
         # check .font for monospacing
         # check style
-        if run.font.name == "Courier New":
-            print(text)
+        if run.font.name == "Courier New": # more fonts!
             text = f"`{text}`"
-            #print(run.font.name)
 
     return text

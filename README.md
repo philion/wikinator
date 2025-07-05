@@ -74,6 +74,10 @@ https://learn.microsoft.com/en-us/dotnet/api/documentformat.openxml.wordprocessi
 Added detection for strikethru and Courier New (as "code font").
 
 This is good enough for v0.2!
+
+Noticed when working on strikethru that nested lists didn't seem to be working. try that next.
+
+Oops. minor bug. fixing with v0.3
 ```
 
 
