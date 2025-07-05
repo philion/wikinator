@@ -139,9 +139,13 @@ class MarkitdownConverter(Converter):
         #         print(result)
 
 
-def main(src: str, dest: str):
+def do_convert(src: str, dest: str) -> None:
     MarkitdownConverter().convert_directory(src, dest)
 
 
+def main() -> None:
+    typer.run(do_convert)
+
+
 if __name__ == "__main__":
-    typer.run(main)
+    main()
