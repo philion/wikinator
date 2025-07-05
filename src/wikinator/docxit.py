@@ -62,6 +62,8 @@ def docx_to_markdown(docx_file, output_md):
             paragraph = paragraphs.pop(0)  # Match current paragraph
             md_paragraph = ""
 
+            ### switching on paragraph.style.name
+
             style_name = paragraph.style.name
 
             if "List" in style_name:
@@ -73,6 +75,11 @@ def docx_to_markdown(docx_file, output_md):
                 md_paragraph = "## "
             elif "Heading 3" in style_name:
                 md_paragraph = "### "
+            elif "Heading 4" in style_name:
+                md_paragraph = "#### "
+            elif "Heading 5" in style_name:
+                md_paragraph = "##### "
+
             elif "Normal" or "normal" in style_name:
                 md_paragraph = ""
             else:
@@ -178,4 +185,13 @@ def parse_run(run, images):
             text = f"*{text}*"
         if run.underline:
             text = f"__{text}__"
+        if run.font.strike:
+            text = f"~~{text}~~"
+        # check .font for monospacing
+        # check style
+        if run.font.name == "Courier New":
+            print(text)
+            text = f"`{text}`"
+            #print(run.font.name)
+
     return text

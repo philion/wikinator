@@ -71,37 +71,7 @@ Now looking over the DOCX XML format to see how much I can scrape out.
 
 https://learn.microsoft.com/en-us/dotnet/api/documentformat.openxml.wordprocessing.fontsizecomplexscript?view=openxml-3.0.1
 
-w:strike - strikethru
-w:bold
-
-```xml
-<w:p w:rsidR="00000000" w:rsidDel="00000000" w:rsidP="00000000" w:rsidRDefault="00000000"
-    w:rsidRPr="00000000" w14:paraId="00000032">
-    <w:pPr>
-        <w:numPr>
-            <w:ilvl w:val="0" />
-            <w:numId w:val="15" />
-        </w:numPr>
-        <w:ind w:left="720" w:hanging="360" />
-        <w:rPr>
-            <w:rFonts w:ascii="Helvetica Neue" w:cs="Helvetica Neue"
-                w:eastAsia="Helvetica Neue" w:hAnsi="Helvetica Neue" />
-            <w:sz w:val="26" />
-            <w:szCs w:val="26" />
-        </w:rPr>
-    </w:pPr>
-    <w:r w:rsidDel="00000000" w:rsidR="00000000" w:rsidRPr="00000000">
-        <w:rPr>
-            <w:rFonts w:ascii="Helvetica Neue" w:cs="Helvetica Neue"
-                w:eastAsia="Helvetica Neue" w:hAnsi="Helvetica Neue" />
-            <w:strike w:val="1" />
-            <w:sz w:val="26" />
-            <w:szCs w:val="26" />
-            <w:rtl w:val="0" />
-        </w:rPr>
-        <w:t xml:space="preserve">J Mount (x1) </w:t>
-    </w:r>
-</w:p>
+Added detection for strikethru and Courier New (as "code font").
 ```
 
 
