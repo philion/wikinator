@@ -34,12 +34,12 @@ uvx wikinator some/dir -graphql https://wiki.example.com/graphql -token 'graphql
 ## Build & Test
 1. Clone
     ```
-    git clone ...
+    git clone https://github.com/philion/wikinator.git
     cd wikinator
     ```
 2. Run, with uv
     ```
-    uv run -m wikinator [options]
+    uv run wikinator [options]
     ```
 3. Test, with pytest
     ```
@@ -54,13 +54,17 @@ Let's make a project! Today's goals:
 - [x] add CLI options, using type (not all implemented)
 - [x] initial commit to github
 - [ ] add image handling
-- [ ] upload to pypi and confirm uvx commands
+- [x] upload to pypi and confirm uvx commands
 
 Cruft removed. README updated. (author waves, breaking 4th wall)
 
 Moving on the main() cleanup and adding support for https://github.com/fastapi/typer
 
 Added simple CLI options for src and dest. Got end-to-end tree processing.
+
+Added Makefile to help with release management. Got PyPI setup: https://pypi.org/project/wikinator/
+
+`uvx wikinator` is working.
 
 Let's go for git and call it a day!
 
