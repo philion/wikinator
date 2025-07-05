@@ -12,6 +12,7 @@ wheels/
 
 # env and secure files
 .env
+.envrc
 token.json
 credentials.json
 

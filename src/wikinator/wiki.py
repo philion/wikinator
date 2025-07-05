@@ -1,18 +1,11 @@
 import os
-import pathlib
-import multiprocessing
-import logging
-import json
 
 from dotenv import load_dotenv
 
-from markitdown import MarkItDown
 
 from gql import Client, gql
 from gql.transport.aiohttp import AIOHTTPTransport
 
-import typer
-from typing_extensions import Annotated
 
 
 def init_client() -> Client:
