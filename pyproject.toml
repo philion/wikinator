@@ -5,6 +5,7 @@ description = "Convert Google docs to markdown"
 readme = "README.md"
 requires-python = ">=3.13"
 dependencies = [
+    "docx2markdown>=0.1.1",
     "dotenv>=0.9.9",
     "google-api-python-client>=2.175.0",
     "google-auth-httplib2>=0.2.0",

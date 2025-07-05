@@ -2,10 +2,14 @@ import os
 from pathlib import Path, PurePath
 import logging
 import json
+import subprocess
 
 from markitdown import MarkItDown
+import docx2markdown
 
 import typer
+
+from wikinator import docxit
 
 class Page:
     """
@@ -101,6 +105,7 @@ class Converter:
                     logging.debug(f"No processor for {ext}, skipping {full_path}")
 
 
+# remove
 class MarkitdownConverter(Converter):
     def _convert(self, filepath:Path) -> Page:
         """
@@ -126,21 +131,106 @@ class MarkitdownConverter(Converter):
             isPrivate = True,
         )
 
-        # trying to make everything async
-        # skipping for now
-        # start workers
-        # with multiprocessing.Pool(3) as worker_pool:
-        #     # create a list the same size for starmap
-        #     args = [(doc, outroot) for doc in docx_queue]
-        #     # run the workers
-        #     results = worker_pool.starmap(convert_docx, args)
-        #     # check result success
-        #     for result in results:
-        #         print(result)
+# remove
+class Docx2MarkdownConverter(Converter):
+    def convert(self, infile:Path, outroot:Path) -> Page:
+        """
+        Converts a docx file into markdown using docx2markdown
+        """
+        rel_path = PurePath(os.path.relpath(infile, self.root.parent)) # remove .parent to remove top dirname
+        rel_file = PurePath(rel_path.parent, infile.stem + ".md")
+        out_file = Path(outroot, rel_file)
+
+        #print(f"in: {infile}, out: {out_file}")
+
+        # FIXME deconstruct docx_to_markdown to seperate convert from write
+        # assure required dirs exist
+        out_file.parent.mkdir(parents=True, exist_ok=True)
+        docx2markdown.docx_to_markdown(infile, out_file)
+
+        return Page(
+            title =  infile.stem,
+            path = str(rel_file),
+            content = "", ## FIXME
+            editor = "markdown",
+            locale = "en",
+            tags = None,
+            description = f"generated from: {infile}",
+            isPublished = False,
+            isPrivate = True,
+        )
+
+# remove?
+class PandocConverter(Converter):
+    def convert(self, infile:Path, outroot:Path) -> Page:
+        """
+        Converts a docx file into markdown using docx2markdown
+        """
+        rel_path = PurePath(os.path.relpath(infile, self.root.parent)) # remove .parent to remove top dirname
+        rel_file = PurePath(rel_path.parent, infile.stem + ".md")
+        out_file = Path(outroot, rel_file)
+
+        media_path = Path(outroot, "images")
+
+        # assure required dirs exist
+        out_file.parent.mkdir(parents=True, exist_ok=True)
+
+        # pandoc {indoc} -f docx -t markdown --wrap=none --markdown-headings=atx --extract-media=images -o {outdoc}
+        command = ["pandoc", infile,
+                   "-f", "docx",
+                   "-t", "markdown",
+                   "--wrap=none",
+                   "--markdown-headings=atx",
+                   "--extract-media=" + str(media_path),
+                   "-o", out_file]
+        subprocess.run(command, check=True)
+
+        return Page(
+            title =  infile.stem,
+            path = str(rel_file),
+            content = "", ## FIXME
+            editor = "markdown",
+            locale = "en",
+            tags = None,
+            description = f"generated from: {infile}",
+            isPublished = False,
+            isPrivate = True,
+        )
+
+
+class DocxitConverter(Converter):
+    def convert(self, infile:Path, outroot:Path) -> Page:
+        """
+        Converts a docx file into markdown using docxit
+        """
+        rel_path = PurePath(os.path.relpath(infile, self.root.parent)) # remove .parent to remove top dirname
+        rel_file = PurePath(rel_path.parent, infile.stem + ".md")
+        out_file = Path(outroot, rel_file)
+
+        # FIXME deconstruct docx_to_markdown to seperate convert from write
+        # assure required dirs exist
+        out_file.parent.mkdir(parents=True, exist_ok=True)
+        docxit.docx_to_markdown(infile, out_file)
+
+        return Page(
+            title =  infile.stem,
+            path = str(rel_file),
+            content = "", ## FIXME
+            editor = "markdown",
+            locale = "en",
+            tags = None,
+            description = f"generated from: {infile}",
+            isPublished = False,
+            isPrivate = True,
+        )
 
 
 def do_convert(src: str, dest: str) -> None:
-    MarkitdownConverter().convert_directory(src, dest)
+    #MarkitdownConverter().convert_directory(src, dest)
+    #Docx2MarkdownConverter().convert_directory(src, dest)
+    #PandocConverter().convert_directory(src, dest)
+    DocxitConverter().convert_directory(src, dest)
+
 
 
 def main() -> None:
