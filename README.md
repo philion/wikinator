@@ -50,9 +50,9 @@ uvx wikinator some/dir -graphql https://wiki.example.com/graphql -token 'graphql
 
 ### 2025-07-04
 Let's make a project! Today's goals:
-- [*] clean up code and README
-- [*] add CLI options, using type (not all implemented)
-- [*] initial commit to github
+- [x] clean up code and README
+- [x] add CLI options, using type (not all implemented)
+- [x] initial commit to github
 - [ ] add image handling
 - [ ] upload to pypi and confirm uvx commands
 
