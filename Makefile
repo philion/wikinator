@@ -29,8 +29,8 @@ dist:
 	uv publish
 
 clean:
-	rm -rf __pycache__
 	rm -fr .ruff_cache/
 	rm -fr dist/
 	rm -f dpytest_*.dat
 	find . -type f -name ‘*.pyc’ -delete
+	find . -name __pycache__  | xargs rm -rf
