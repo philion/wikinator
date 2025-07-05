@@ -2,10 +2,12 @@
 
 Convert a Google drive download into a markdown-based wiki.
 
+**Note**: This is a work in progress, and not all features will be supported or working properly.
+
 ## tl;dr
 ```
-uvx wikinator -src some/dir -dest another_dir
-uvx wikinator -src some/dir -graphql https://wiki.example.com/graphql -token 'graphql-auth-token'
+uvx wikinator some/dir another_dir
+uvx wikinator some/dir -graphql https://wiki.example.com/graphql -token 'graphql-auth-token'
 ```
 
 Given a directory, convert supported file types into markdown-based files while maintaining names and directory structure. This can then be uploaded into various wiki systems.
@@ -21,27 +23,19 @@ Given a directory, convert supported file types into markdown-based files while 
 - wiki.js (and other GraphQL-based wikis)
 - Obsidian
 
-
-**Note**: This is a work in progress, and not all features will be supported or working properly.
-
 The development log will be kept here until the 1.0 release.
-
 
 ## Usage
 ```
-uvx wikinator -src some/dir -dest another_dir
-uvx wikinator -src some/dir -graphql https://wiki.example.com/graphql -token 'graphql-auth-token'
+uvx wikinator some/dir another_dir
+uvx wikinator some/dir -graphql https://wiki.example.com/graphql -token 'graphql-auth-token'
 ```
-
-## Install
-
-1. Install dependencies
-
 
 ## Build & Test
 1. Clone
     ```
     git clone ...
+    cd wikinator
     ```
 2. Run, with uv
     ```
@@ -57,8 +51,8 @@ uvx wikinator -src some/dir -graphql https://wiki.example.com/graphql -token 'gr
 ### 2025-07-04
 Let's make a project! Today's goals:
 - [*] clean up code and README
-- [ ] add CLI options, using type (not all implemented)
-- [ ] initial commit to github
+- [*] add CLI options, using type (not all implemented)
+- [*] initial commit to github
 - [ ] add image handling
 - [ ] upload to pypi and confirm uvx commands
 
@@ -66,6 +60,9 @@ Cruft removed. README updated. (author waves, breaking 4th wall)
 
 Moving on the main() cleanup and adding support for https://github.com/fastapi/typer
 
+Added simple CLI options for src and dest. Got end-to-end tree processing.
+
+Let's go for git and call it a day!
 
 ### 2025-07-03
 Next steps are testing different document converters and accessing google drive via API.

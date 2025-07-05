@@ -58,10 +58,12 @@ class Page:
         """
         filename = self.path + '.md'
         target = Path(root, filename)
-        print("WRITE", target)
-        #with open(target, 'w', encoding='utf8') as output_file:
-        #    # TODO write yaml-based meta data?
-        #    output_file.write(self.content)
+        # assure required dirs exist
+        target.parent.mkdir(parents=True, exist_ok=True)
+        # write the content
+        with open(target, 'w') as output_file:
+            # TODO write yaml-based meta data?
+            output_file.write(self.content)
 
 
 class Converter:
