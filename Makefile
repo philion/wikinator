@@ -31,6 +31,8 @@ dist:
 clean:
 	rm -fr .ruff_cache/
 	rm -fr dist/
+	rm -fr .venv/
 	rm -f dpytest_*.dat
+	rm -fr .pytest_cache/
 	find . -type f -name ‘*.pyc’ -delete
 	find . -name __pycache__  | xargs rm -rf
