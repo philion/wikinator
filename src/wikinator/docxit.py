@@ -35,6 +35,8 @@ import os
 from lxml import etree
 from pathlib import Path
 
+from . import log
+
 def docx_to_markdown(docx_file, output_md):
     """Convert a .docx file to a Markdown file and a subfolder of images."""
 
@@ -55,7 +57,6 @@ def docx_to_markdown(docx_file, output_md):
             images[rel.rId] = image_filename[len(folder)+1:]
             #print("image file", image_filename, "-->", images[rel.rId])
 
-    #print("images", images)
 
     for block in doc.element.body:
         if block.tag.endswith('p'):  # Handle paragraphs
@@ -63,13 +64,10 @@ def docx_to_markdown(docx_file, output_md):
             md_paragraph = ""
 
             ### switching on paragraph.style.name
-
             style_name = paragraph.style.name
+            #print("STYLE:", style_name)
 
-            if "List" in style_name:
-                prefix = get_bullet_point_prefix(paragraph)
-                md_paragraph = prefix  # Markdown syntax for bullet points
-            elif "Heading 1" in style_name:
+            if "Heading 1" in style_name:
                 md_paragraph = "# "
             elif "Heading 2" in style_name:
                 md_paragraph = "## "
@@ -79,14 +77,19 @@ def docx_to_markdown(docx_file, output_md):
                 md_paragraph = "#### "
             elif "Heading 5" in style_name:
                 md_paragraph = "##### "
-
             elif "Normal" or "normal" in style_name:
                 md_paragraph = ""
+                if is_list(paragraph):
+                    md_paragraph = get_bullet_point_prefix(paragraph)
             else:
                 print("Unsupported style:", style_name)
 
-            md_paragraph += parse_run(paragraph, images)
+            content = parse_run(paragraph, images)
 
+            #print("---> ", md_paragraph, content[:40])
+
+            #if len(content.strip()) > 0:
+            md_paragraph += content
             markdown.append(md_paragraph)
 
         elif block.tag.endswith('tbl'):  # Handle tables (if present)
@@ -107,7 +110,7 @@ def docx_to_markdown(docx_file, output_md):
 
     # Write to Markdown file
     with open(output_md, "w", encoding="utf-8") as md_file:
-        md_file.write("\n\n".join(markdown))
+        md_file.write("\n".join(markdown))
 
 
 def extract_r_embed(xml_string):
@@ -135,6 +138,7 @@ def extract_r_embed(xml_string):
         return blip.attrib.get("{http://schemas.openxmlformats.org/officeDocument/2006/relationships}embed")
     return None
 
+
 def save_image(image_part, output_folder):
     """Save an image to the output folder and return the filename."""
     os.makedirs(output_folder, exist_ok=True)
@@ -155,10 +159,42 @@ def get_list_level(paragraph):
             return int(ilvl.get("{http://schemas.openxmlformats.org/wordprocessingml/2006/main}val"))
     return 0
 
+
+def get_list_marker(paragraph):
+    p = paragraph._element
+    numPr = p.find(".//w:numPr", namespaces=p.nsmap)
+    ilvl = numPr.find(".//w:numId", namespaces=p.nsmap)
+    type_id = int(ilvl.get("{http://schemas.openxmlformats.org/wordprocessingml/2006/main}val"))
+
+    match type_id:
+        case 1:
+            return '1. '
+        case 2:
+            return '- [ ] '
+        case 3:
+            return '* '
+        case _:
+            log.info(f"Unknown list type id: {type_id}")
+
+    # by default
+    return "* "
+
+
+def is_list(paragraph) -> bool:
+    p = paragraph._element
+    numPr = p.find(".//w:numPr", namespaces=p.nsmap)
+    return numPr is not None
+
+
 def get_bullet_point_prefix(paragraph):
-    """Determine the Markdown prefix for a bullet point based on its indentation level."""
+    """
+    Determine the Markdown prefix for a bullet point
+    based on its indentation level.
+    """
     level = get_list_level(paragraph)
-    return "  " * level + "- "  # Use Markdown syntax for nested lists
+    marker = get_list_marker(paragraph)
+    return "  " * level + marker
+
 
 def parse_run(run, images):
     """Go through document objects recursively and return markdown."""
@@ -176,7 +212,7 @@ def parse_run(run, images):
             image_url = images[rId]
             text += f"![]({image_url})"
         else:
-            print("unknown run type", s)
+            log.warning("unknown run type", s)
 
     if isinstance(run, docx.text.run.Run):
         if run.bold:
@@ -190,6 +226,6 @@ def parse_run(run, images):
         # check .font for monospacing
         # check style
         if run.font.name == "Courier New": # more fonts!
-            text = f"`{text}`"
+            text = f"`{text}`<br>"
 
     return text

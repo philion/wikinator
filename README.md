@@ -75,10 +75,45 @@ Added detection for strikethru and Courier New (as "code font").
 
 This is good enough for v0.2!
 
-Noticed when working on strikethru that nested lists didn't seem to be working. try that next.
-
 Oops. minor bug. fixing with v0.3
+
+Noticed when working on strikethru that nested lists didn't seem to be working.
+
+Next tasks:
+- [x] List handling
+- [x] Code cleanup (remove unused libs)
+- [ ] restructure docxit for in-memory
+- [ ] simple testing.
+- [x] recognize and handle single file
+- [x] default output to local dir
+
+Looking over the raw XML, it looks like...
+```xml
+<w:numPr>
+    <w:ilvl w:val="0" />
+    <w:numId w:val="2" />
+</w:numPr>
 ```
+It looks like:
+* `w:ilvl` is the zero-based indent level
+* `w:numId` is an ID from numbering.xml, roughly mapping to:
+    - val=1 ordered list: `1. `
+    - val=2 checklist: `- [ ]`
+    - val=3 bullet: `* `
+
+Restructured and cleaned up. Removed unneeded code and libraried.
+
+Created a simple docx doc for testing.
+
+Far enough that a new release feels right. v0.4!
+
+Let's combine testing lists with a simple test:
+- load a file with a list
+- convert
+- confirm it contains the correct list
+
+
+
 
 
 ### 2025-07-04
