@@ -33,10 +33,15 @@
 import docx
 import os
 from lxml import etree
-from pathlib import Path
+from pathlib import Path, PurePath
+import logging
 
-from . import log
+from .page import Page
+from .converter import Converter
 
+log = logging.getLogger(__name__)
+
+### ORIGINAL file -> file
 def docx_to_markdown(docx_file, output_md):
     """Convert a .docx file to a Markdown file and a subfolder of images."""
 
@@ -112,6 +117,108 @@ def docx_to_markdown(docx_file, output_md):
     with open(output_md, "w", encoding="utf-8") as md_file:
         md_file.write("\n".join(markdown))
 
+### new convert file -> memory
+
+def write_images(doc:docx.Document, outroot:Path):
+    # save all images
+    image_folder = Path(outroot, "images")
+
+    images = {}
+
+    for rel in doc.part.rels.values():
+        if "image" in rel.reltype:
+            image_filename = save_image(rel.target_part, image_folder)
+            images[rel.rId] = image_filename[len(outroot)+1:]
+            # use relative
+            print("image file:", rel.rId, ":", image_filename, "-->", images[rel.rId])
+
+    return images
+
+
+def convert(docx_file:Path, root:Path, outroot:Path) -> Page:
+    """Convert a .docx file to a Markdown file and a subfolder of images."""
+    doc = docx.Document(docx_file)
+
+    paragraphs = list(doc.paragraphs)
+    tables = list(doc.tables)
+
+    markdown = []
+
+    # save all images
+    images = write_images(doc, outroot)
+
+    for block in doc.element.body:
+        if block.tag.endswith('p'):  # Handle paragraphs
+            paragraph = paragraphs.pop(0)  # Match current paragraph
+            md_paragraph = ""
+
+            ### switching on paragraph.style.name
+            style_name = paragraph.style.name
+            #print("STYLE:", style_name)
+
+            if "Heading 1" in style_name:
+                md_paragraph = "# "
+            elif "Heading 2" in style_name:
+                md_paragraph = "## "
+            elif "Heading 3" in style_name:
+                md_paragraph = "### "
+            elif "Heading 4" in style_name:
+                md_paragraph = "#### "
+            elif "Heading 5" in style_name:
+                md_paragraph = "##### "
+            elif "Normal" or "normal" in style_name:
+                md_paragraph = ""
+                if is_list(paragraph):
+                    md_paragraph = get_bullet_point_prefix(paragraph)
+            else:
+                print("Unsupported style:", style_name)
+
+            content = parse_run(paragraph, images)
+
+            #print("---> ", md_paragraph, content[:40])
+
+            #if len(content.strip()) > 0:
+            md_paragraph += content
+            markdown.append(md_paragraph)
+
+        elif block.tag.endswith('tbl'):  # Handle tables (if present)
+            table = tables.pop(0)  # Match current table
+            table_text = ""
+            for i, row in enumerate(table.rows):
+                table_text += "| " + " | ".join(cell.text.strip() for cell in row.cells) + " |\n"
+                if i == 0:
+                    table_text += "| " + " | ".join("---" for _ in row.cells) + " |\n"
+
+            markdown.append(table_text)
+
+        elif block.tag.endswith('sectPr') or block.tag.endswith('sdt'):
+            # ignore
+            pass
+        else:
+            print("Unsupported block:", docx_file, block.tag)
+
+    rel_path = PurePath(os.path.relpath(docx_file, root.parent)) # remove .parent to remove top dirname
+    rel_file = PurePath(rel_path.parent, docx_file.stem)
+    #out_file = Path(outroot, rel_file + ".md")
+
+    print("!!!", docx_file, rel_file)
+
+    # FIXME title is stored at level 0. Top-level headers are header level=1
+    title = docx_file.stem
+
+    return Page(
+        title = title,
+        path = str(rel_file),
+        content = "\n".join(markdown),
+        editor = "markdown",
+        locale = "en",
+        tags = None,
+        description = f"generated from: {docx_file}",
+        isPublished = False,
+        isPrivate = True,
+    )
+
+### ---
 
 def extract_r_embed(xml_string):
     """
@@ -229,3 +336,14 @@ def parse_run(run, images):
             text = f"`{text}`<br>"
 
     return text
+
+
+class DocxitConverter(Converter):
+    def convert(self, infile:Path, outroot:Path) -> Page:
+        """
+        Converts a docx file into markdown using docxit
+        """
+        # need to write!
+        page = convert(infile, self.root, outroot)
+        page.write(outroot)
+        return page

@@ -48,6 +48,31 @@ uvx wikinator some/dir -graphql https://wiki.example.com/graphql -token 'graphql
 
 ## Development Log
 
+### 2025-07-06
+Getting into formatting details, and I want to decompse and stream-line the docxit converter.
+- [x] docxit creates in memory
+- [x] better page handling, read and write files to disk
+- [x] get first test working
+- [ ] simple formatting tests
+- [ ] build commands (unimplemented)
+
+Let's combine testing lists with a simple test:
+- load a file with a list
+- convert
+- confirm it contains the correct list
+
+Moved the code around to simplify and remove potential circular dependencies.
+
+Code runs as expected, as does trival test case.
+
+Bumping version to 0.5, but not yet ready to release.
+
+Thinking about commands:
+- convert : files -> files
+- extract : from googledocs -> file system
+- upload  : from files -> graphql
+- fullmonty : from googledoc -> graphql
+
 ### 2025-07-05
 Starting work on image preservation.
 
@@ -106,14 +131,6 @@ Restructured and cleaned up. Removed unneeded code and libraried.
 Created a simple docx doc for testing.
 
 Far enough that a new release feels right. v0.4!
-
-Let's combine testing lists with a simple test:
-- load a file with a list
-- convert
-- confirm it contains the correct list
-
-
-
 
 
 ### 2025-07-04
