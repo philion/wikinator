@@ -54,7 +54,7 @@ Getting into formatting details, and I want to decompse and stream-line the docx
 - [x] better page handling, read and write files to disk
 - [x] get first test working
 - [ ] simple formatting tests
-- [ ] build commands (unimplemented)
+- [x] build commands (unimplemented)
 
 Let's combine testing lists with a simple test:
 - load a file with a list
@@ -71,7 +71,9 @@ Thinking about commands:
 - convert : files -> files
 - extract : from googledocs -> file system
 - upload  : from files -> graphql
-- fullmonty : from googledoc -> graphql
+- teleport : from googledoc -> graphql
+
+
 
 ### 2025-07-05
 Starting work on image preservation.

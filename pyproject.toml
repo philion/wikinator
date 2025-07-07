@@ -45,4 +45,4 @@ build-backend = "hatchling.build"
 packages = ["src/wikinator"]
 
 [project.scripts]
-wikinator = "wikinator.app:main"
+wikinator = "wikinator.cli:main"
