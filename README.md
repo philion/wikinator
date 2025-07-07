@@ -55,6 +55,7 @@ Getting into formatting details, and I want to decompse and stream-line the docx
 - [x] get first test working
 - [ ] simple formatting tests
 - [x] build commands (unimplemented)
+- [ ] for single input file, assume single output filename (if doen't exists). if does, and is dir, write -in-.
 
 Let's combine testing lists with a simple test:
 - load a file with a list
@@ -73,6 +74,11 @@ Thinking about commands:
 - upload  : from files -> graphql
 - teleport : from googledoc -> graphql
 
+Refactored __main__ to better commands. Got `-v` working.
+
+Original behavior is working as `wikinator convert`.
+
+Now looking at extract command.
 
 
 ### 2025-07-05

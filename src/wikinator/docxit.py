@@ -343,7 +343,4 @@ class DocxitConverter(Converter):
         """
         Converts a docx file into markdown using docxit
         """
-        # need to write!
-        page = convert(infile, self.root, outroot)
-        page.write(outroot)
-        return page
+        return convert(infile, self.root, outroot)

@@ -1,7 +1,6 @@
 #!/usr/bin/env python
-from wikinator import cli
 
-from . import __app_name__
+from . import cli, __app_name__
 
 
 def main():

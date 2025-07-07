@@ -10,20 +10,8 @@ class Converter:
     root: Path # Root for file walk, and to resolve rol paths
 
 
-    def _convert(self, infile:Path) -> Page:
-        raise NotImplementedError
-
-
     def convert(self, infile:Path, outroot:Path) -> Page:
-        # translate with subclass
-        new_doc = self._convert(infile)
-
-        #print("converted", infile, new_doc.path)
-
-        # write!
-        new_doc.write(outroot)
-
-        return new_doc
+        raise NotImplementedError
 
 
     def convert_file(self, full_path:Path, outroot:str):
@@ -32,7 +20,8 @@ class Converter:
         # TODO: generic mapping to queue based on ext.
         if ext == ".docx":
             #docx_queue.append(full_path) # TODO async!
-            self.convert(full_path, outroot)
+            page = self.convert(full_path, outroot)
+            page.write(outroot)
         else:
             log.debug(f"No processor for {ext}, skipping {full_path}")
 

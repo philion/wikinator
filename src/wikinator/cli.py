@@ -1,9 +1,12 @@
 from typing import Optional
 
 import typer
+from typing_extensions import Annotated
 
 from . import __app_name__, __app_version__
 from .docxit import DocxitConverter
+from .page import Page
+from .gdrive import known_files
 
 app = typer.Typer()
 
@@ -43,8 +46,7 @@ app = typer.Typer()
 @app.command()
 def convert(
     source: str,
-    destination: str = "."
-    # typer.Option(2, "--priority", "-p", min=1, max=3),
+    destination: Annotated[str, typer.Argument()] = "."
 ) -> None:
     DocxitConverter().convert_directory(source, destination)
 
@@ -52,11 +54,20 @@ def convert(
 #- extract : from googledocs -> file system
 @app.command()
 def extract(
-    source: str,
-    destination: str = "."
-    # typer.Option(2, "--priority", "-p", min=1, max=3),
+    url: str,
+    destination: Annotated[str, typer.Argument()] = "."
 ) -> None:
-    raise NotImplementedError
+    """
+    Extract one or more google drive docs to disk, in
+    markdown format.
+    url - the url of the doc or directory to recurse
+    destination - directory to extract to. defaults to current dir
+    """
+    # given a google-page-producer, store
+    # those pages
+    for page in known_files(url):
+        print("writing", page.path)
+        page.write(destination)
 
 
 #- upload  : from files -> graphql
