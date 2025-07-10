@@ -27,9 +27,21 @@ The development log will be kept here until the 1.0 release.
 
 ## Usage
 ```
-uvx wikinator some/dir another_dir
-uvx wikinator some/dir -graphql https://wiki.example.com/graphql -token 'graphql-auth-token'
+uvx wikinator convert some/dir another_dir
+uvx wikinator extract target_dir
+uvx wikinator upload target_dir wikipath
+uvx wikinator teleport wikipath
 ```
+
+`convert` converts directory full of DOCX into markdown.
+
+`extract` extracts the docs from google docs as markdown.
+
+`upload` loads a full directory into wiki.js
+
+`teleport` goes directly from google drive to wiki.js.
+
+TODO: Details on setting up creds for google docs and wikijs.
 
 ## Build & Test
 1. Clone
@@ -48,12 +60,19 @@ uvx wikinator some/dir -graphql https://wiki.example.com/graphql -token 'graphql
 
 ## Development Log
 
+### 2025-07-08
+Initial (buggy, probably) implementation of the full command set:
+- `convert` converts directory full of DOCX into markdown.
+- `extract` extracts the docs from google docs as markdown.
+- `upload` loads a full directory into wiki.js
+- `teleport` goes directly from google drive to wiki.js.
+
 ### 2025-07-07
 Decent progress with google drive download. Still lots of problems.
 - [ ] get single file and dir params working.
-- [ ] fix `\n` translation problem. where are they coming from
+- [x] fix `\n` translation problem. where are they coming from
 - [ ] for single input file, assume single output filename (if doen't exists). if does, and is dir, write -in-.
-- [ ] simple formatting tests
+- [x] simple formatting tests
 - [ ] research which converter google is using
 
 pandoc doesn't do embedding the same way (HTML-only): https://pandoc.org/MANUAL.html#option--embed-resources%5B
@@ -64,7 +83,7 @@ Getting into formatting details, and I want to decompse and stream-line the docx
 - [x] docxit creates in memory
 - [x] better page handling, read and write files to disk
 - [x] get first test working
-- [ ] simple formatting tests
+- [x] simple formatting tests
 - [x] build commands (unimplemented)
 - [ ] for single input file, assume single output filename (if doen't exists). if does, and is dir, write -in-.
 
