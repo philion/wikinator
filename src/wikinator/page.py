@@ -66,7 +66,11 @@ class Page:
         # check for metadata header and file-on-disk metadate
         # for creating page struct
 
-        with open(filename, 'r') as file:
+        file_mode = 'r'
+        if filename.lower().endswith(".docx"):
+            file_mode = 'rb'
+
+        with open(filename, file_mode) as file:
             content = file.read()
 
         return cls(
