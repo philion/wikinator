@@ -48,6 +48,17 @@ uvx wikinator some/dir -graphql https://wiki.example.com/graphql -token 'graphql
 
 ## Development Log
 
+### 2025-07-07
+Decent progress with google drive download. Still lots of problems.
+- [ ] get single file and dir params working.
+- [ ] fix `\n` translation problem. where are they coming from
+- [ ] for single input file, assume single output filename (if doen't exists). if does, and is dir, write -in-.
+- [ ] simple formatting tests
+- [ ] research which converter google is using
+
+pandoc doesn't do embedding the same way (HTML-only): https://pandoc.org/MANUAL.html#option--embed-resources%5B
+
+
 ### 2025-07-06
 Getting into formatting details, and I want to decompse and stream-line the docxit converter.
 - [x] docxit creates in memory

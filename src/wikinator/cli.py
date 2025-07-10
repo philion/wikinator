@@ -5,8 +5,8 @@ from typing_extensions import Annotated
 
 from . import __app_name__, __app_version__
 from .docxit import DocxitConverter
-from .page import Page
-from .gdrive import known_files
+from .gdrive import GoogleDrive
+from .wiki import GraphIngester, GraphDB
 
 app = typer.Typer()
 
@@ -54,7 +54,6 @@ def convert(
 #- extract : from googledocs -> file system
 @app.command()
 def extract(
-    url: str,
     destination: Annotated[str, typer.Argument()] = "."
 ) -> None:
     """
@@ -63,10 +62,8 @@ def extract(
     url - the url of the doc or directory to recurse
     destination - directory to extract to. defaults to current dir
     """
-    # given a google-page-producer, store
-    # those pages
-    for page in known_files(url):
-        print("writing", page.path)
+    # given a google-page-producer, store those pages
+    for page in GoogleDrive().list_files("application/vnd.google-apps.document"):
         page.write(destination)
 
 
@@ -74,20 +71,23 @@ def extract(
 @app.command()
 def upload(
     source: str,
-    destination: str,
+    wikiroot: str,
     # typer.Option(2, "--priority", "-p", min=1, max=3),
 ) -> None:
-    raise NotImplementedError
+
+    uploader = GraphIngester()
+    uploader.convert_directory(source, wikiroot)
 
 
 #- teleport : from googledoc -> graphql
 @app.command()
 def teleport(
-    source: str,
-    destination: str = ".",
+    wikiroot: str,
     # typer.Option(2, "--priority", "-p", min=1, max=3),
 ) -> None:
-    raise NotImplementedError
+    wiki = GraphDB()
+    for page in GoogleDrive().list_files("application/vnd.google-apps.document"):
+        wiki.upload(page, wikiroot)
 
 
 # @app.command()

@@ -56,19 +56,28 @@ class Page:
 
     @classmethod
     def load_file(cls, filename:str):
+        path = Path(filename)
+        name = path.stem
+        path_name = Path(path.parent, name)
+
+
         # TODO - implement
         # read the file as markdown
         # check for metadata header and file-on-disk metadate
         # for creating page struct
+
+        with open(filename, 'r') as file:
+            content = file.read()
+
         return cls(
-            content = "",# file
-            editor  = "markdown",# metadata
-            isPublished = False,# metadata
-            isPrivate = True,# metadata
-            locale = "en",# metadata
-            path = "",# from filename
-            tags = "",# metadata
-            title = "",# metadata
+            content = content,
+            editor  = "markdown",
+            isPublished = False,
+            isPrivate = True,
+            locale = "en",
+            path = str(path_name),
+            tags = "",
+            title = name,
             description = "", # metadata
         )
 
@@ -107,4 +116,6 @@ class Page:
         Use the stored path to output relative to the provided root.
         """
         filename = self.filename(root)
+        # FIXME log.info()
+        print("writing", filename)
         self.write_file(filename)
