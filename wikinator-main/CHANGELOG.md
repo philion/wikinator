@@ -1,6 +1,6 @@
 # Wikinator Changelog
 
-## [0.5.1] - 2025-01-XX - Bug Fixes and Improvements
+## [0.5.1] - 2025-07-09 - Bug Fixes and Improvements
 
 ### 🐛 Critical Bug Fixes
 
