@@ -1,0 +1,20 @@
+# Python-generated files
+__pycache__/
+*.py[oc]
+build/
+dist/
+wheels/
+*.egg-info
+.python-version
+
+# Virtual environments
+.venv
+
+# env and secure files
+.env
+.envrc
+token.json
+credentials.json
+
+# Apple dingles
+.DS_Store
