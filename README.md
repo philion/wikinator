@@ -6,8 +6,23 @@ Convert a Google drive download into a markdown-based wiki.
 
 ## tl;dr
 ```
-uvx wikinator some/dir another_dir
-uvx wikinator some/dir -graphql https://wiki.example.com/graphql -token 'graphql-auth-token'
+uvx wikinator upload --help
+Usage: wikinator upload [OPTIONS] SOURCE WIKIROOT
+
+  Convert and upload a file hierarchy to a GraphQL wiki. Given a source
+  directrory, walk the directory tree and for each file: - if MD or image
+  file, upload at the same path relative to the wikiroot path - If DOCX,
+  convert to MD and upload at the same path... - Unknown files are skipped.
+  For example, with source=/src and wikiroot=/wiki/root, A DOCX file at
+  /src/dir/some_file.docx will be uploaded to /wiki/root/dir/some_file on the
+  wiki.
+
+Arguments:
+  SOURCE    [required]
+  WIKIROOT  [required]
+
+Options:
+  --help  Show this message and exit.
 ```
 
 Given a directory, convert supported file types into markdown-based files while maintaining names and directory structure. This can then be uploaded into various wiki systems.
@@ -15,9 +30,9 @@ Given a directory, convert supported file types into markdown-based files while 
 ### Supported File Types
 - DOCX files (default for GDocs) are converted to markdown
 - images are extracted, uploaded and embedded in the markdown
-- `text` and code file types are wrapped in markdown code blocks
-- CSV and XSLT are converted to markdown tables
-- for any document that is converted to markdown, a copy of the original is uploaded and attached
+- FUTURE `text` and code file types are wrapped in markdown code blocks
+- FUTURE CSV and XSLT are converted to markdown tables
+- FUTURE for any document that is converted to markdown, a copy of the original is uploaded and attached
 
 ### Supported Wiki Import
 - wiki.js (and other GraphQL-based wikis)
@@ -27,21 +42,31 @@ The development log will be kept here until the 1.0 release.
 
 ## Usage
 ```
-uvx wikinator convert some/dir another_dir
-uvx wikinator extract target_dir
 uvx wikinator upload target_dir wikipath
-uvx wikinator teleport wikipath
 ```
-
-`convert` converts directory full of DOCX into markdown.
-
-`extract` extracts the docs from google docs as markdown.
 
 `upload` loads a full directory into wiki.js
 
-`teleport` goes directly from google drive to wiki.js.
+## Install & Configure
+There is nothing to install, the `wikinator` command can be run from anywhere [`uvx` is installed](https://docs.astral.sh/uv/getting-started/installation/).
 
-TODO: Details on setting up creds for google docs and wikijs.
+To upload to your wiki, you must have credentials.
+
+### wiki.js
+
+TODO: Details on setting up creds for wikijs.
+
+Once you have the URL and authorization token from wiki,js, add them to an `.env` file:
+```
+GRAPH_DB=https://wiki.example.com/graphql
+AUTH_TOKEN=kfhgdkfjhgkdjfhgkdjhfgk...
+```
+
+Once this file is set up correctly, `wikinator` is run with:
+```
+uvx wikinator upload --help
+```
+
 
 ## Build & Test
 1. Clone
@@ -59,6 +84,12 @@ TODO: Details on setting up creds for google docs and wikijs.
     ```
 
 ## Development Log
+
+### 2025-08-07
+Refactored and disabled (for now) the convert, extract and teleport commands. The code remains in place, but the
+current focus is on convert and upload to graphql, and I wan to disable any code that's not in that path while testing.
+
+Added a verbose logging option, `-v`, to watch files being processed.
 
 ### 2025-07-08
 Initial (buggy, probably) implementation of the full command set:
