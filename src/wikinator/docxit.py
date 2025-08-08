@@ -118,7 +118,82 @@ def docx_to_markdown(docx_file, output_md):
         md_file.write("\n".join(markdown))
 
 ### new convert file -> memory
+def convert(docx_file:Path) -> Page:
+    doc = docx.Document(docx_file)
 
+    paragraphs = list(doc.paragraphs)
+    tables = list(doc.tables)
+
+    markdown = []
+
+    # TODO iterate and append  images
+
+    for block in doc.element.body:
+        if block.tag.endswith('p'):  # Handle paragraphs
+            paragraph = paragraphs.pop(0)  # Match current paragraph
+            md_paragraph = ""
+
+            ### switching on paragraph.style.name
+            style_name = paragraph.style.name
+            #print("STYLE:", style_name)
+
+            if "Heading 1" in style_name:
+                md_paragraph = "# "
+            elif "Heading 2" in style_name:
+                md_paragraph = "## "
+            elif "Heading 3" in style_name:
+                md_paragraph = "### "
+            elif "Heading 4" in style_name:
+                md_paragraph = "#### "
+            elif "Heading 5" in style_name:
+                md_paragraph = "##### "
+            elif "Normal" or "normal" in style_name:
+                md_paragraph = ""
+                if is_list(paragraph):
+                    md_paragraph = get_bullet_point_prefix(paragraph)
+            else:
+                print("Unsupported style:", style_name)
+
+            content = parse_run(paragraph)
+
+            #print("---> ", md_paragraph, content[:40])
+
+            #if len(content.strip()) > 0:
+            md_paragraph += content
+            markdown.append(md_paragraph)
+
+        elif block.tag.endswith('tbl'):  # Handle tables (if present)
+            table = tables.pop(0)  # Match current table
+            table_text = ""
+            for i, row in enumerate(table.rows):
+                table_text += "| " + " | ".join(cell.text.strip() for cell in row.cells) + " |\n"
+                if i == 0:
+                    table_text += "| " + " | ".join("---" for _ in row.cells) + " |\n"
+
+            markdown.append(table_text)
+
+        elif block.tag.endswith('sectPr') or block.tag.endswith('sdt'):
+            # ignore
+            pass
+        else:
+            log.warning("Unsupported block:", docx_file, block.tag)
+
+    # FIXME title is stored at level 0. Top-level headers are header level=1
+    title = docx_file.stem
+
+    return Page(
+        title = title,
+        path = "TODO",
+        content = "\n".join(markdown),
+        editor = "markdown",
+        locale = "en",
+        tags = [],
+        description = f"generated from: {docx_file}",
+        isPublished = False,
+        isPrivate = True,
+    )
+
+### TODO convert to append images to content in page
 def write_images(doc:docx.Document, outroot:Path):
     # save all images
     image_folder = Path(outroot, "images")
@@ -135,7 +210,8 @@ def write_images(doc:docx.Document, outroot:Path):
     return images
 
 
-def convert(docx_file:Path, root:Path, outroot:Path) -> Page:
+### OLD!!!
+def convert_out(docx_file:Path, root:Path, outroot:Path) -> Page:
     """Convert a .docx file to a Markdown file and a subfolder of images."""
     doc = docx.Document(docx_file)
 
@@ -303,7 +379,7 @@ def get_bullet_point_prefix(paragraph):
     return "  " * level + marker
 
 
-def parse_run(run, images):
+def parse_run(run):
     """Go through document objects recursively and return markdown."""
     sub_parts = list(run.iter_inner_content())
     text = ""
@@ -311,13 +387,12 @@ def parse_run(run, images):
         if isinstance(s, str):
             text += s
         elif isinstance(s, docx.text.run.Run):
-            text += parse_run(s, images)
+            text += parse_run(s)
         elif isinstance(s, docx.text.hyperlink.Hyperlink):
             text += f"[{s.text}]({s.address})"
         elif isinstance(s, docx.drawing.Drawing):
             rId = extract_r_embed(s._element.xml)
-            image_url = images[rId]
-            text += f"![]({image_url})"
+            text += f"![][image{rId}]"
         else:
             log.warning("unknown run type", s)
 
@@ -343,4 +418,21 @@ class DocxitConverter(Converter):
         """
         Converts a docx file into markdown using docxit
         """
-        return convert(infile, self.root, outroot)
+        return convert_out(infile, self.root, outroot)
+
+
+    @staticmethod
+    def load_file(full_path:Path) -> Page:
+        """
+        Given an DOCX file, load the content and convert to MD using
+        the Docxit converter. This generates an in-memory Page object
+        for the document with all attachments embedded.
+        Given an MD file, just load a page with it.
+        """
+        match full_path.suffix.lower():
+            case ".docx":
+                return convert(full_path)
+            case ".md":
+                return Page.load_file(full_path)
+            case _:
+                log.info(f"Skipping, unknown file extension: {full_path}")

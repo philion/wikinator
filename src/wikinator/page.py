@@ -55,9 +55,10 @@ class Page:
 
 
     @classmethod
-    def load_file(cls, filename:str):
-        path = Path(filename)
+    def load_file(cls, filename:Path):
+        path = filename
         name = path.stem
+        ext = path.suffix.lower()
         path_name = Path(path.parent, name)
 
 
@@ -67,7 +68,7 @@ class Page:
         # for creating page struct
 
         file_mode = 'r'
-        if filename.lower().endswith(".docx"):
+        if ext == ".docx":
             file_mode = 'rb'
 
         with open(filename, file_mode) as file:

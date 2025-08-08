@@ -83,10 +83,9 @@ def upload(
     For example, with source=/src and wikiroot=/wiki/root,
     a DOCX file at /src/dir/some_file.docx will be uploaded to /wiki/root/dir/some_file on the wiki.
     """
-    uploader = GraphIngester()
-    uploader.convert_directory(source, wikiroot)
+    GraphIngester().convert_directory(source, wikiroot)
 
-
+# Setup global options using callbacks
 @app.callback()
 def common(
     ctx: typer.Context,
