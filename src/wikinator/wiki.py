@@ -114,7 +114,7 @@ class GraphDB:
             return self.create(page)
 
 
-    def create(self, page:Page):
+    def create(self, page:Page) -> Page | None:
         query = gql(
             '''
             mutation Page (
@@ -155,8 +155,23 @@ class GraphDB:
             }
             '''
         )
-        result = self.client.execute(query, variable_values=vars(page))
-        return result
+        response = self.client.execute(query, variable_values=vars(page))
+        result = response["responseResult"]
+        if not result["succeeded"]:
+            log.error(f"Creation of {page.path} failed: {result["message"]}")
+            return None
+
+        page = Page.load_json(response["page"])
+
+        # {"data":{"pages":{"create":{
+        # "responseResult":{
+        #   "succeeded":false,
+        #   "errorCode":6002,
+        #   "slug":"PageDuplicateCreate",
+        #   "message":"Cannot create this page because an entry already exists at the same path."},
+        # "page":null}}}}
+
+        return page
 
 
 class GraphIngester(Converter):
