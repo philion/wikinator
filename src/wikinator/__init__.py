@@ -74,6 +74,7 @@ def trace_callback(value: bool) -> None:
 def upload(
     source: str,
     wikiroot: str,
+    output: Annotated[bool, typer.Option("-o", help="Make a local copy of the converted file")] = False,
 ) -> None:
     """
     Convert and upload a file hierarchy to a GraphQL wiki.
@@ -85,10 +86,7 @@ def upload(
     For example, with source=/src and wikiroot=/wiki/root,
     a DOCX file at /src/dir/some_file.docx will be uploaded to /wiki/root/dir/some_file on the wiki.
     """
-    GraphIngester().convert_directory(source, wikiroot)
-    #REMOVE
-    #pages = GraphDB().all_pages()
-    #json.dumps(pages, indent=2)
+    GraphIngester(output=output).convert_directory(source, wikiroot)
 
 
 # Setup global options using callbacks

@@ -216,8 +216,9 @@ class GraphDB:
 
 
 class GraphIngester(Converter):
-    def __init__(self):
+    def __init__(self, output:bool = False):
         self.db = GraphDB()
+        self.output = output
 
     # use the "file walk" from the converter to upload
     def convert_file(self, full_path:Path, outroot:str):
@@ -229,3 +230,6 @@ class GraphIngester(Converter):
         page.path = wikipath
 
         self.db.update(page)
+
+        if self.output:
+            page.write(outroot)

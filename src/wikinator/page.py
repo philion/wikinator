@@ -127,5 +127,5 @@ class Page:
         Use the stored path to output relative to the provided root.
         """
         filename = self.filename(root)
-        log.info("writing", filename)
+        log.info(f"writing {filename}")
         self.write_file(filename)
