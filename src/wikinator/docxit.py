@@ -176,13 +176,13 @@ def convert(docx_file:Path) -> Page:
 
         elif block.tag.endswith('sectPr') or block.tag.endswith('sdt'):
             # ignore
+            log.debug(f"!!! section ptr: {block}")
             pass
         else:
             log.warning("Unsupported block:", docx_file, block.tag)
 
     # append footnotes for the
     log.info(f"A number of paragraphs: {len(markdown)}")
-
     markdown.extend(comments(doc))
 
     # append images to the array of markdown paragraphs
@@ -204,17 +204,19 @@ def convert(docx_file:Path) -> Page:
 
 
 def comments(doc:docx.Document) -> list[str]:
-    # FIXME Implement
-    # doc.comments
-    return []
+    comments = []
+    for comment in doc.comments:
+        # author, text, timestamp
+        datestr = comment.timestamp.strftime('%y-%m-%d %H:%M')
+        comments.append(f"\n[^{comment.comment_id}]: At {datestr}, {comment.author} said: {comment.text}")
+        log.debug(comment)
+    return comments
 
 
 def write_images(doc:docx.Document, outroot:Path):
     # save all images
     image_folder = Path(outroot, "images")
-
     images = {}
-
     for rel in doc.part.rels.values():
         if "image" in rel.reltype:
             image_filename = save_image(rel.target_part, image_folder)
@@ -223,7 +225,6 @@ def write_images(doc:docx.Document, outroot:Path):
             log.info("image file:", rel.rId, ":", image_filename, "-->", images[rel.rId])
         else:
             log.info(f"rel.rId={rel.rId}, rel.reltype={rel.reltype}")
-
     return images
 
 
@@ -234,7 +235,8 @@ def embedded_images(doc:docx.Document) -> list[str]:
     images = []
     for rel in doc.part.rels.values():
         if "image" in rel.reltype:
-            anchor = f"image{rel.rId}"
+            # rId is in the form "rId18"
+            anchor = f"image{rel.rId[3:]}"
             content = base64.b64encode(rel.target_part.blob).decode('utf-8')
             log.info(f"appening image id: {anchor}, size: {len(content)}")
             images.append(f"[{anchor}]: <data:image/png;base64,{content}>\n\n")
@@ -243,100 +245,6 @@ def embedded_images(doc:docx.Document) -> list[str]:
 
     return images
 
-    # ![][image1]
-    # ...
-    # [image1]: <data:image/png;base64,iVBORw0KGgoA...
-    # ...kJggg==>
-
-
-### OLD!!!
-def convert_out(docx_file:Path, root:Path, outroot:Path) -> Page:
-    """Convert a .docx file to a Markdown file and a subfolder of images."""
-    doc = docx.Document(docx_file)
-
-    paragraphs = list(doc.paragraphs)
-    tables = list(doc.tables)
-
-    markdown = []
-
-    # save all images
-    images = write_images(doc, outroot)
-
-    for block in doc.element.body:
-        if block.tag.endswith('p'):  # Handle paragraphs
-            paragraph = paragraphs.pop(0)  # Match current paragraph
-            md_paragraph = ""
-
-            ### switching on paragraph.style.name
-            style_name = paragraph.style.name
-            #print("STYLE:", style_name)
-
-            if "Heading 1" in style_name:
-                md_paragraph = "# "
-            elif "Heading 2" in style_name:
-                md_paragraph = "## "
-            elif "Heading 3" in style_name:
-                md_paragraph = "### "
-            elif "Heading 4" in style_name:
-                md_paragraph = "#### "
-            elif "Heading 5" in style_name:
-                md_paragraph = "##### "
-            elif "Normal" or "normal" in style_name:
-                md_paragraph = ""
-                if is_list(paragraph):
-                    md_paragraph = get_bullet_point_prefix(paragraph)
-            else:
-                log.warning("Unsupported style:", style_name)
-
-            content = parse_run(paragraph, images)
-
-            # TODO DETECT comment-end
-
-            #print("---> ", md_paragraph, content[:40])
-
-            #if len(content.strip()) > 0:
-            md_paragraph += content
-            markdown.append(md_paragraph)
-
-        elif block.tag.endswith('tbl'):  # Handle tables (if present)
-            table = tables.pop(0)  # Match current table
-            table_text = ""
-            for i, row in enumerate(table.rows):
-                table_text += "| " + " | ".join(cell.text.strip() for cell in row.cells) + " |\n"
-                if i == 0:
-                    table_text += "| " + " | ".join("---" for _ in row.cells) + " |\n"
-
-            markdown.append(table_text)
-
-        elif block.tag.endswith('sectPr') or block.tag.endswith('sdt'):
-            # ignore
-            pass
-        else:
-            log.warning("Unsupported block:", docx_file, block.tag)
-
-    rel_path = PurePath(os.path.relpath(docx_file, root.parent)) # remove .parent to remove top dirname
-    rel_file = PurePath(rel_path.parent, docx_file.stem)
-
-    # Append footnotes and comments from docx
-
-    # Append images from docx
-
-    # FIXME title is stored at level 0. Top-level headers are header level=1
-    title = docx_file.stem
-
-    return Page(
-        title = title,
-        path = str(rel_file),
-        content = "\n".join(markdown),
-        editor = "markdown",
-        locale = "en",
-        tags = None,
-        description = f"generated from: {docx_file}",
-        isPublished = False,
-        isPrivate = True,
-    )
-
-### ---
 
 def extract_r_embed(xml_string):
     """
@@ -436,7 +344,7 @@ def parse_run(run):
             text += f"[{s.text}]({s.address})"
         elif isinstance(s, docx.drawing.Drawing):
             rId = extract_r_embed(s._element.xml)
-            text += f"![][image{rId}]"
+            text += f"![][image{rId[3:]}]"
         else:
             log.warning("unknown run type", s)
 
