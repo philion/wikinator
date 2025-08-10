@@ -19,6 +19,7 @@ log = logging.getLogger(__name__)
 class GraphDB:
     def __init__(self):
         self.client = self._init_client()
+        self.pageCache = self.all_pages()
 
     def _init_client(self) -> Client:
         """
@@ -34,29 +35,34 @@ class GraphDB:
 
 
     def id_for_path(self, path:str) -> int:
-        query = gql(
-            '''
-            {
-                pages {
-                    singleByPath(path:"$path", locale:"en") {
-                        id
-                        path
-                    }
-                }
-            }
-            '''
-        )
-        try:
-            result = self.client.execute(query, variable_values={"path":path})
-            log.info(result)
-            # if valid
-            return result['id']
-        except TransportQueryError:
-            log.debug(f"Path not found: {path}, ")
+        cached = self.pageCache.get(path)
+        if cached:
+            return cached["id"]
+        else:
             return 0
-        except Exception as e:
-            log.error(type(e).__name__)
-            return 0
+        # query = gql(
+        #     '''
+        #     {
+        #         pages {
+        #             singleByPath(path:"$path", locale:"en") {
+        #                 id
+        #                 path
+        #             }
+        #         }
+        #     }
+        #     '''
+        # )
+        # try:
+        #     result = self.client.execute(query, variable_values={"path":path})
+        #     log.info(result)
+        #     # if valid
+        #     return result['id']
+        # except TransportQueryError:
+        #     log.debug(f"Path not found: {path}, ")
+        #     return 0
+        # except Exception as e:
+        #     log.error(type(e).__name__)
+        #     return 0
 
 
     def delete(self, page:Page) -> Page:
@@ -67,10 +73,13 @@ class GraphDB:
 
     def update(self, page:Page) -> Page:
         id = self.id_for_path(page.path)
+        log.debug(f"Found id={id} for {page.path}")
         if id > 0:
-            log.info("updating page", page.path)
+            log.info(f"updating page {page.path}")
+            page.id = id
             query = gql('''
                 mutation Page (
+                        $id: Int!,
                         $content: String!,
                         $description: String!,
                         $editor:String!,
@@ -108,9 +117,13 @@ class GraphDB:
                     }
                 }
                 ''')
-            return self.client.execute(query, variable_values=vars(page))
+            try:
+                return self.client.execute(query, variable_values=vars(page))
+            except TransportQueryError as e:
+                log.error(f"update failed on {page.path}: {e}")
         else:
             # page doesn't exist! create!
+            log.info(f"page doesn't exist, creating: {page.path}")
             return self.create(page)
 
 
@@ -156,12 +169,15 @@ class GraphDB:
             '''
         )
         response = self.client.execute(query, variable_values=vars(page))
-        result = response["responseResult"]
+
+        log.warning(response)
+
+        result = response["pages"]["create"]["responseResult"]
         if not result["succeeded"]:
             log.error(f"Creation of {page.path} failed: {result["message"]}")
             return None
 
-        page = Page.load_json(response["page"])
+        return Page.load_json(response["pages"]["create"]["page"])
 
         # {"data":{"pages":{"create":{
         # "responseResult":{
@@ -171,7 +187,32 @@ class GraphDB:
         #   "message":"Cannot create this page because an entry already exists at the same path."},
         # "page":null}}}}
 
-        return page
+
+    def all_pages(self):
+        pages = {}
+
+        # returns a map indexed by path
+        query = gql(
+            '''
+            {
+                pages {
+                    list (orderBy: PATH, limit:5000) {
+                    id
+                    path
+                    title
+                    }
+                }
+            }
+            '''
+        )
+        result = self.client.execute(query)
+
+        for page in result["pages"]["list"]:
+            pages[page["path"]] = page
+
+        #log.info(pages)
+
+        return pages
 
 
 class GraphIngester(Converter):

@@ -89,6 +89,10 @@ class Page:
         )
 
 
+    def __str__(self):
+        return f'Page({self.id} {self.path} {self.title})'
+
+
     def filename(self, root = None) -> Path:
         """
         determine the file name for this page

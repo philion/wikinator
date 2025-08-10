@@ -1,10 +1,11 @@
 import importlib.metadata
 import logging
+import json
 import typer
 from typing import Optional
 from typing_extensions import Annotated
 
-from .wiki import GraphIngester
+from .wiki import GraphIngester, GraphDB
 
 
 __app_name__ = "wikinator"
@@ -85,6 +86,9 @@ def upload(
     a DOCX file at /src/dir/some_file.docx will be uploaded to /wiki/root/dir/some_file on the wiki.
     """
     GraphIngester().convert_directory(source, wikiroot)
+    #REMOVE
+    #pages = GraphDB().all_pages()
+    #json.dumps(pages, indent=2)
 
 
 # Setup global options using callbacks
