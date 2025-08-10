@@ -87,7 +87,7 @@ def docx_to_markdown(docx_file, output_md):
                 if is_list(paragraph):
                     md_paragraph = get_bullet_point_prefix(paragraph)
             else:
-                print("Unsupported style:", style_name)
+                log.error("Unsupported style:", style_name)
 
             content = parse_run(paragraph, images)
 
@@ -111,7 +111,7 @@ def docx_to_markdown(docx_file, output_md):
             # ignore
             pass
         else:
-            print("Unsupported block:", docx_file, block.tag)
+            log.warning("Unsupported block:", docx_file, block.tag)
 
     # Write to Markdown file
     with open(output_md, "w", encoding="utf-8") as md_file:
@@ -152,7 +152,7 @@ def convert(docx_file:Path) -> Page:
                 if is_list(paragraph):
                     md_paragraph = get_bullet_point_prefix(paragraph)
             else:
-                print("Unsupported style:", style_name)
+                log.error("Unsupported style:", style_name)
 
             content = parse_run(paragraph)
 
@@ -182,6 +182,7 @@ def convert(docx_file:Path) -> Page:
     title = docx_file.stem
 
     return Page(
+        id = "",
         title = title,
         path = "TODO",
         content = "\n".join(markdown),
@@ -205,7 +206,7 @@ def write_images(doc:docx.Document, outroot:Path):
             image_filename = save_image(rel.target_part, image_folder)
             images[rel.rId] = image_filename[len(outroot)+1:]
             # use relative
-            print("image file:", rel.rId, ":", image_filename, "-->", images[rel.rId])
+            log.info("image file:", rel.rId, ":", image_filename, "-->", images[rel.rId])
 
     return images
 
@@ -247,7 +248,7 @@ def convert_out(docx_file:Path, root:Path, outroot:Path) -> Page:
                 if is_list(paragraph):
                     md_paragraph = get_bullet_point_prefix(paragraph)
             else:
-                print("Unsupported style:", style_name)
+                log.warning("Unsupported style:", style_name)
 
             content = parse_run(paragraph, images)
 
@@ -271,13 +272,13 @@ def convert_out(docx_file:Path, root:Path, outroot:Path) -> Page:
             # ignore
             pass
         else:
-            print("Unsupported block:", docx_file, block.tag)
+            log.warning("Unsupported block:", docx_file, block.tag)
 
     rel_path = PurePath(os.path.relpath(docx_file, root.parent)) # remove .parent to remove top dirname
     rel_file = PurePath(rel_path.parent, docx_file.stem)
     #out_file = Path(outroot, rel_file + ".md")
 
-    print("!!!", docx_file, rel_file)
+    #print("!!!", docx_file, rel_file)
 
     # FIXME title is stored at level 0. Top-level headers are header level=1
     title = docx_file.stem

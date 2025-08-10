@@ -10,6 +10,7 @@ class Page:
     """
     Specific class for page, to help with validation, as graphql is strict about params
     """
+    id: int
     content: str
     editor: str
     isPublished: bool
@@ -21,8 +22,9 @@ class Page:
     description: str
 
 
-    def __init__(self, content: str, editor: str, isPublished: bool, isPrivate: bool,
+    def __init__(self, id: int, content: str, editor: str, isPublished: bool, isPrivate: bool,
                 locale: str, path: str, tags: list[str], title: str, description: str):
+        self.id = id
         self.content = content
         self.editor = editor
         self.isPublished = isPublished
@@ -37,6 +39,7 @@ class Page:
     @classmethod
     def load(cls, params: dict[str,any]):
         return cls(
+            id = params["id"],
             content = params["content"],
             editor  = params["editor"],
             isPublished = params["isPublished"],
@@ -60,7 +63,6 @@ class Page:
         name = path.stem
         ext = path.suffix.lower()
         path_name = Path(path.parent, name)
-
 
         # TODO - implement
         # read the file as markdown
@@ -121,6 +123,5 @@ class Page:
         Use the stored path to output relative to the provided root.
         """
         filename = self.filename(root)
-        # FIXME log.info()
-        print("writing", filename)
+        log.info("writing", filename)
         self.write_file(filename)

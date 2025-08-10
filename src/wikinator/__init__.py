@@ -21,7 +21,7 @@ class TyperLoggerHandler(logging.Handler):
         fg = None
         bg = None
         if record.levelno == logging.DEBUG:
-            fg = typer.colors.BLACK
+            fg = typer.colors.CYAN
         elif record.levelno == logging.INFO:
             fg = typer.colors.BRIGHT_BLUE
         elif record.levelno == logging.WARNING:
@@ -38,9 +38,11 @@ def init_logging(level:int) -> None:
     #fmt = "{asctime} {levelname:<8s} {name:<16} {message}"
     fmt = "{message}"
     typer_handler = TyperLoggerHandler()
-    logging.basicConfig(level=level, format=fmt, style='{', handlers=(typer_handler,))
+    logging.basicConfig(level=logging.WARNING, format=fmt, style='{', handlers=(typer_handler,))
+    # gql.transport.aiohttp = INFO for full transport logging
     log.setLevel(level)
     log.info(f"starting {__app_name__} v{__app_version__}")
+    log.debug("debug logging enabled.")
 
 
 def version_callback(value: bool) -> None:
@@ -51,20 +53,19 @@ def version_callback(value: bool) -> None:
 
 def verbose_callback(value: bool) -> None:
     if value:
+        init_logging(logging.INFO)
+
+
+def debug_callback(value: bool) -> None:
+    if value:
         init_logging(logging.DEBUG)
-    else:
-        init_logging(logging.WARNING)
 
 
-# @app.command()
-# def hello(
-#     name: Annotated[str, typer.Option()] = "World",
-#     version: Annotated[
-#         Optional[bool], typer.Option("--version", callback=version_callback)
-#     ] = None,
-#     ):
-#     """Say hello to someone."""
-#     typer.echo(f"👋 Hello, {name}!")
+def trace_callback(value: bool) -> None:
+    if value:
+        init_logging(logging.DEBUG)
+        comms_trace = logging.getLogger("gql.transport.aiohttp")
+        comms_trace.setLevel(logging.INFO)
 
 
 #- upload  : from files -> graphql
@@ -85,6 +86,7 @@ def upload(
     """
     GraphIngester().convert_directory(source, wikiroot)
 
+
 # Setup global options using callbacks
 @app.callback()
 def common(
@@ -93,6 +95,10 @@ def common(
                                           help="Display version and exit.")] = False,
     verbose: Annotated[bool, typer.Option("-v", callback=verbose_callback,
                                           help="Show verbose logging.")] = False,
+    debug: Annotated[bool, typer.Option("-vv", callback=debug_callback,
+                                          help="Show debug logging.")] = False,
+    trace: Annotated[bool, typer.Option("-vvv", callback=trace_callback,
+                                          help="Show full trace logging.")] = False,
 ):
     pass
 
