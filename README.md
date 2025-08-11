@@ -27,6 +27,8 @@ Options:
 
 Given a directory, convert supported file types into markdown-based files while maintaining names and directory structure. This can then be uploaded into various wiki systems.
 
+Here is a simple footnote[^3].
+
 ### Supported File Types
 - DOCX files (default for GDocs) are converted to markdown
 - images are extracted, uploaded and embedded in the markdown
@@ -252,5 +254,7 @@ Initial time-boxed work started to examine what would be required to migrate our
 Initial proof-of-concept goals:
 - Convert a docx page to md or asciidoc
 - Upload test pages to wiki.js
+
+[^3]: At 25-08-10 19:35, Paul Philion said: This is a test comment.
 
 I was able to get this working in sample code in a few hours.
