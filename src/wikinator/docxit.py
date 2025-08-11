@@ -30,6 +30,7 @@
 # All changes in the this version are Copyright (c) 2025, Paul Philion, Acme Rocket Company
 # under the provided MIT license.
 
+import re
 import docx
 import base64
 import os
@@ -40,85 +41,8 @@ import logging
 from .page import Page
 from .converter import Converter
 
+
 log = logging.getLogger(__name__)
-
-### ORIGINAL file -> file
-# def docx_to_markdown(docx_file, output_md):
-#     """Convert a .docx file to a Markdown file and a subfolder of images."""
-
-#     folder = str(Path(output_md).parent)
-#     image_folder = str(Path(output_md).parent / "images")
-
-#     doc = docx.Document(docx_file)
-
-#     paragraphs = list(doc.paragraphs)
-#     tables = list(doc.tables)
-#     markdown = []
-
-#     # save all images
-#     images = {}
-#     for rel in doc.part.rels.values():
-#         if "image" in rel.reltype:
-#             image_filename = save_image(rel.target_part, image_folder)
-#             images[rel.rId] = image_filename[len(folder)+1:]
-#             #print("image file", image_filename, "-->", images[rel.rId])
-
-
-#     for block in doc.element.body:
-#         if block.tag.endswith('p'):  # Handle paragraphs
-#             paragraph = paragraphs.pop(0)  # Match current paragraph
-#             md_paragraph = ""
-
-#             ### switching on paragraph.style.name
-#             style_name = paragraph.style.name
-#             #print("STYLE:", style_name)
-
-#             if "Heading 1" in style_name:
-#                 md_paragraph = "# "
-#             elif "Heading 2" in style_name:
-#                 md_paragraph = "## "
-#             elif "Heading 3" in style_name:
-#                 md_paragraph = "### "
-#             elif "Heading 4" in style_name:
-#                 md_paragraph = "#### "
-#             elif "Heading 5" in style_name:
-#                 md_paragraph = "##### "
-#             elif "Normal" or "normal" in style_name:
-#                 md_paragraph = ""
-#                 if is_list(paragraph):
-#                     md_paragraph = get_bullet_point_prefix(paragraph)
-#             else:
-#                 log.error("Unsupported style:", style_name)
-
-#             content = parse_run(paragraph, images)
-
-#             #print("---> ", md_paragraph, content[:40])
-
-#             #if len(content.strip()) > 0:
-#             md_paragraph += content
-#             markdown.append(md_paragraph)
-
-#         elif block.tag.endswith('tbl'):  # Handle tables (if present)
-#             table = tables.pop(0)  # Match current table
-#             table_text = ""
-#             for i, row in enumerate(table.rows):
-#                 table_text += "| " + " | ".join(cell.text.strip() for cell in row.cells) + " |\n"
-#                 if i == 0:
-#                     table_text += "| " + " | ".join("---" for _ in row.cells) + " |\n"
-
-#             markdown.append(table_text)
-
-#         elif block.tag.endswith('sectPr') or block.tag.endswith('sdt'):
-#             # ignore
-#             pass
-#         else:
-#             log.warning("Unsupported block:", docx_file, block.tag)
-
-#     # Write to Markdown file
-#     with open(output_md, "w", encoding="utf-8") as md_file:
-#         md_file.write("\n".join(markdown))
-# REMOVE ^^^
-
 
 
 ### new convert file -> memory
@@ -158,9 +82,6 @@ def convert(docx_file:Path) -> Page:
 
             content = parse_run(paragraph)
 
-            #print("---> ", md_paragraph, content[:40])
-
-            #if len(content.strip()) > 0:
             md_paragraph += content
             markdown.append(md_paragraph)
 
@@ -181,19 +102,17 @@ def convert(docx_file:Path) -> Page:
         else:
             log.warning("Unsupported block:", docx_file, block.tag)
 
-    # append footnotes for the
-    log.info(f"A number of paragraphs: {len(markdown)}")
+    # append footnotes
     markdown.extend(comments(doc))
 
     # append images to the array of markdown paragraphs
-    log.info(f"B number of paragraphs: {len(markdown)}")
     markdown.extend(embedded_images(doc))
 
     return Page(
         id = "",
         title = doc.core_properties.title, # docx file metadata
         path = "",
-        content = "\n".join(markdown),
+        content = "\n\n".join(markdown),
         editor = "markdown",
         locale = "en",
         tags = doc.core_properties.keywords, # docx file metadata
@@ -208,7 +127,7 @@ def comments(doc:docx.Document) -> list[str]:
     for comment in doc.comments:
         # author, text, timestamp
         datestr = comment.timestamp.strftime('%y-%m-%d %H:%M')
-        comments.append(f"\n[^{comment.comment_id}]: At {datestr}, {comment.author} said: {comment.text}")
+        comments.append(f"\n[^{comment.comment_id}]: At {datestr}, {comment.author} said: {comment.text.strip()}")
         log.debug(comment)
     return comments
 
@@ -270,6 +189,38 @@ def extract_r_embed(xml_string):
     if blip is not None:
         return blip.attrib.get("{http://schemas.openxmlformats.org/officeDocument/2006/relationships}embed")
     return None
+
+
+def extract_comment_id(xml_string) -> int:
+    """
+    Extract the value of w:commentReference w:id="3" the given XML string.
+    :param xml_string: The XML content as a string.
+    """
+    # Parse the XML
+    # root = etree.fromstring(xml_string)
+    # elem = root.find(".//commentReference")
+    # if elem:
+    #     log.debug(f"found comment! {elem}")
+    #     return elem.get("id", None)  # Default to empty string
+    # That's not working, try regex
+    # <w:commentReference w:id="3">
+    # HACK but it works
+    regex = re.compile(r"w:commentReference w:id=\"(\d+)\"")
+    m = regex.search(xml_string)
+    if m:
+        return int(m[1])
+    else:
+        return None
+
+
+
+def extract_attribute_safely(tree, xpath, attr):
+    """Extract attribute with proper None checking"""
+    element = tree.find(xpath)
+    if element is not None:
+        return element.get(attr, "")  # Default to empty string
+    return ""
+
 
 
 def save_image(image_part, output_folder):
@@ -361,6 +312,29 @@ def parse_run(run):
         # check style
         if run.font.name == "Courier New": # more fonts!
             text = f"`{text}`<br>"
+
+        comment_id = extract_comment_id(run._element.xml)
+        if comment_id:
+            #log.debug(f"### found comment ID: {comment_id}")
+            text += f"[^{comment_id}]"
+
+# <w:r xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"
+# xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"
+# xmlns:wp="http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing"
+# xmlns:w10="urn:schemas-microsoft-com:office:word"
+# xmlns:w14="http://schemas.microsoft.com/office/word/2010/wordml"
+# xmlns:wps="http://schemas.microsoft.com/office/word/2010/wordprocessingShape"
+# xmlns:wpg="http://schemas.microsoft.com/office/word/2010/wordprocessingGroup"
+# xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+# xmlns:v="urn:schemas-microsoft-com:vml"
+# xmlns:o="urn:schemas-microsoft-com:office:office"
+# xmlns:m="http://schemas.openxmlformats.org/officeDocument/2006/math">
+#  <w:commentReference w:id="3"/>
+#</w:r>
+
+    #else:
+    #
+    #     log.warning(f"type: {type(run)}, {run}")
 
     return text
 

@@ -177,7 +177,9 @@ class GraphDB:
             log.error(f"Creation of {page.path} failed: {result["message"]}")
             return None
 
-        return Page.load_json(response["pages"]["create"]["page"])
+        log.info(f"#### {response["pages"]["create"]["page"]}")
+
+        return Page.load(response["pages"]["create"]["page"])
 
         # {"data":{"pages":{"create":{
         # "responseResult":{
