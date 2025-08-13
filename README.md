@@ -49,7 +49,7 @@ uvx wikinator upload target_file.md new/path
 
 `upload` loads a full directory into the wiki. In the above examples:
 - Upload the directoy tree at `target_dir` into the wikipath `target_dir`
-- Upload the file `target_file.md` into the wiki path `new/path/target_file`
+- Upload the file `target_file.docx` into the wiki path `new/path/target_file`
 
 Assuming the `en` locale, the final paths in the wiki will be:
 - $GRAPH_DB/en/target_dir/...
