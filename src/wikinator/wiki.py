@@ -17,20 +17,17 @@ log = logging.getLogger(__name__)
 
 
 class GraphDB:
-    def __init__(self):
-        self.client = self._init_client()
+    def __init__(self, url:str, token:str):
+        self.client = self._init_client(url, token)
         self.pageCache = self.all_pages()
 
-    def _init_client(self) -> Client:
+    def _init_client(self, url:str, token:str) -> Client:
         """
         Initialize the GraphQL client with the credentials found in the system ENV:
         - GRAPH_DB : The full URL for requests to the graph DB
         - AUTH_TOKEN : Security token to authorize session
         """
-        load_dotenv()
-        db_url = os.getenv("GRAPH_DB")
-        token = os.getenv("AUTH_TOKEN")
-        transport = AIOHTTPTransport(url=db_url, headers={'Authorization': f'Bearer {token}'}, ssl=True)
+        transport = AIOHTTPTransport(url=url, headers={'Authorization': f'Bearer {token}'}, ssl=True)
         return Client(transport=transport)
 
 
@@ -218,13 +215,16 @@ class GraphDB:
 
 
 class GraphIngester(Converter):
-    def __init__(self, output:bool = False):
-        self.db = GraphDB()
+    def __init__(self, url:str, token:str, output:bool = False):
+        self.db = GraphDB(url, token)
         self.output = output
 
     # use the "file walk" from the converter to upload
     def convert_file(self, full_path:Path, outroot:str):
-        wikipath = f"{outroot}/{full_path.parent}/{full_path.stem}"
+        if outroot.strip() in ["/", ""]:
+            wikipath = f"{full_path.parent}/{full_path.stem}"
+        else:
+            wikipath = f"{outroot}/{full_path.parent}/{full_path.stem}"
         log.info(f"Converting {full_path} into {wikipath}")
 
         page = DocxitConverter.load_file(full_path)

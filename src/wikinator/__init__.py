@@ -4,6 +4,9 @@ import json
 import typer
 from typing import Optional
 from typing_extensions import Annotated
+import os
+from dotenv import load_dotenv
+
 
 from .wiki import GraphIngester, GraphDB
 
@@ -73,7 +76,9 @@ def trace_callback(value: bool) -> None:
 @app.command()
 def upload(
     source: str,
-    wikiroot: str,
+    wikiroot: str = "/",
+    #url: Annotated[str, typer.Option("--db", help="URL of the GraphQL database")] = os.getenv("GRAPH_DB"),
+    #token: Annotated[str, typer.Option("--token", help="URL of the GraphQL database")] = os.getenv("AUTH_TOKEN"),
     output: Annotated[bool, typer.Option("-o", help="Make a local copy of the converted file")] = False,
 ) -> None:
     """
@@ -86,7 +91,12 @@ def upload(
     For example, with source=/src and wikiroot=/wiki/root,
     a DOCX file at /src/dir/some_file.docx will be uploaded to /wiki/root/dir/some_file on the wiki.
     """
-    GraphIngester(output=output).convert_directory(source, wikiroot)
+    load_dotenv(dotenv_path=os.path.expanduser("~/.config/wikinator.env"))
+    url = os.getenv("GRAPH_DB")
+    token = os.getenv("AUTH_TOKEN")
+    log.debug(f"Loaded env, db={url}")
+
+    GraphIngester(url=url, token=token, output=output).convert_directory(source, wikiroot)
 
 
 # Setup global options using callbacks

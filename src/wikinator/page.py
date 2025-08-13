@@ -39,16 +39,16 @@ class Page:
     @classmethod
     def load(cls, params: dict[str,any]):
         return cls(
-            id = params["id"],
-            content = params["content"],
-            editor  = params["editor"],
-            isPublished = params["isPublished"],
-            isPrivate = params["isPrivate"],
-            locale = params["locale"],
-            path = params["path"],
-            tags = params["tags"],
-            title = params["title"],
-            description = params["description"],
+            id = params.get("id"),
+            content = params.get("content"),
+            editor  = params.get("editor"),
+            isPublished = params.get("isPublished"),
+            isPrivate = params.get("isPrivate"),
+            locale = params.get("locale"),
+            path = params.get("path"),
+            tags = params.get("tags"),
+            title = params.get("title"),
+            description = params.get("description"),
         )
 
 

@@ -19,7 +19,7 @@ Usage: wikinator upload [OPTIONS] SOURCE WIKIROOT
 
 Arguments:
   SOURCE    [required]
-  WIKIROOT  [required]
+  WIKIROOT  defaults to root of wiki, /
 
 Options:
   --help  Show this message and exit.
@@ -27,7 +27,6 @@ Options:
 
 Given a directory, convert supported file types into markdown-based files while maintaining names and directory structure. This can then be uploaded into various wiki systems.
 
-Here is a simple footnote[^3].
 
 ### Supported File Types
 - DOCX files (default for GDocs) are converted to markdown
@@ -44,15 +43,30 @@ The development log will be kept here until the 1.0 release.
 
 ## Usage
 ```
-uvx wikinator upload target_dir wikipath
+uvx wikinator upload target_dir
+uvx wikinator upload target_file.md new/path
 ```
 
-`upload` loads a full directory into wiki.js
+`upload` loads a full directory into the wiki. In the above examples:
+- Upload the directoy tree at `target_dir` into the wikipath `target_dir`
+- Upload the file `target_file.md` into the wiki path `new/path/target_file`
+
+Assuming the `en` locale, the final paths in the wiki will be:
+- $GRAPH_DB/en/target_dir/...
+- $GRAPH_DB/en/new/path/target_file
 
 ## Install & Configure
 There is nothing to install, the `wikinator` command can be run from anywhere [`uvx` is installed](https://docs.astral.sh/uv/getting-started/installation/).
 
-To upload to your wiki, you must have credentials.
+To upload to your wiki, you must have the URL and an authorization token.
+
+Create a file in your home directory: `~/.config/wikinator.env`
+
+In that file, add your wiki GraphQL URL and the access token:
+```
+GRAPH_DB=https://wiki.example.org/graphql
+AUTH_TOKEN=your-authorization-token
+```
 
 ### wiki.js
 
