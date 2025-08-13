@@ -60,6 +60,10 @@ There is nothing to install, the `wikinator` command can be run from anywhere [`
 
 To upload to your wiki, you must have the URL and an authorization token.
 
+### wiki.js
+
+TODO: Details on setting up auth token for wikijs.
+
 Create a file in your home directory: `~/.config/wikinator.env`
 
 In that file, add your wiki GraphQL URL and the access token:
@@ -68,19 +72,9 @@ GRAPH_DB=https://wiki.example.org/graphql
 AUTH_TOKEN=your-authorization-token
 ```
 
-### wiki.js
-
-TODO: Details on setting up creds for wikijs.
-
-Once you have the URL and authorization token from wiki,js, add them to an `.env` file:
-```
-GRAPH_DB=https://wiki.example.com/graphql
-AUTH_TOKEN=kfhgdkfjhgkdjfhgkdjhfgk...
-```
-
 Once this file is set up correctly, `wikinator` is run with:
 ```
-uvx wikinator upload --help
+uvx wikinator upload target_dir
 ```
 
 
