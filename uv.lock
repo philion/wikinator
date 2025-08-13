@@ -785,7 +785,7 @@ wheels = [
 [[package]]
 name = "wikinator"
 version = "0.6.0"
-source = { virtual = "." }
+source = { editable = "." }
 dependencies = [
     { name = "dotenv" },
     { name = "google-api-python-client" },
