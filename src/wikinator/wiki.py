@@ -235,6 +235,7 @@ class GraphIngester(Converter):
         log.info(f"BEFORE {wikipath}")
 
         wikipath = wikipath.replace(" ", "_")
+        wikipath = wikipath.replace(".", "_")
         log.info(f"Converting {full_path} into {wikipath}")
 
         page = DocxitConverter.load_file(full_path)

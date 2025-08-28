@@ -1,6 +1,6 @@
 [project]
 name = "wikinator"
-version = "0.6.2"
+version = "0.7.0"
 description = "Convert Google docs to markdown"
 readme = "README.md"
 requires-python = ">=3.13"
