@@ -297,7 +297,7 @@ def parse_run(run):
             rId = extract_r_embed(s._element.xml)
             text += f"![][image{rId[3:]}]"
         else:
-            log.warning("unknown run type", s)
+            log.warning(f"unknown run type: {s}")
 
     if isinstance(run, docx.text.run.Run):
         if run.bold:

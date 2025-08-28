@@ -77,9 +77,10 @@ class Page:
             content = file.read()
 
         return cls(
+            id = -1, # loaded from file
             content = content,
             editor  = "markdown",
-            isPublished = False,
+            isPublished = True,
             isPrivate = True,
             locale = "en",
             path = str(path_name),

@@ -165,18 +165,22 @@ class GraphDB:
             }
             '''
         )
-        response = self.client.execute(query, variable_values=vars(page))
+        try:
+            response = self.client.execute(query, variable_values=vars(page))
 
-        log.warning(response)
+            log.warning(response)
 
-        result = response["pages"]["create"]["responseResult"]
-        if not result["succeeded"]:
-            log.error(f"Creation of {page.path} failed: {result["message"]}")
+            result = response["pages"]["create"]["responseResult"]
+            if not result["succeeded"]:
+                log.error(f"Creation of {page.path} failed: {result["message"]}")
+                return None
+
+            log.info(f"#### {response["pages"]["create"]["page"]}")
+
+            return Page.load(response["pages"]["create"]["page"])
+        except Exception as ex:
+            log.error(f"Error creating {page.path}: {ex}")
             return None
-
-        log.info(f"#### {response["pages"]["create"]["page"]}")
-
-        return Page.load(response["pages"]["create"]["page"])
 
         # {"data":{"pages":{"create":{
         # "responseResult":{
@@ -222,16 +226,25 @@ class GraphIngester(Converter):
     # use the "file walk" from the converter to upload
     def convert_file(self, full_path:Path, outroot:str):
         if outroot.strip() in ["/", ""]:
+            outroot = ""
             wikipath = f"{full_path.parent}/{full_path.stem}"
         else:
             wikipath = f"{outroot}/{full_path.parent}/{full_path.stem}"
+
+        # replace chars in path
+        log.info(f"BEFORE {wikipath}")
+
+        wikipath = wikipath.replace(" ", "_")
         log.info(f"Converting {full_path} into {wikipath}")
 
         page = DocxitConverter.load_file(full_path)
-        # make sure the path is correct
-        page.path = wikipath
+        if page:
+            # make sure the path is correct
+            page.path = wikipath
 
-        self.db.update(page)
+            self.db.update(page)
 
-        if self.output:
-            page.write(outroot)
+            if self.output:
+                page.write(outroot)
+        else:
+            log.debug(f"Skipping {full_path}")
