@@ -1,3 +1,5 @@
+from pathlib import Path
+
 from wikinator.page import Page
 
 def test_something():
@@ -7,6 +9,6 @@ def test_something():
 
 def test_page():
     # load a page
-    page = Page.load_file("tests/resources/test.docx")
+    page = Page.load_file(Path("tests/resources/test.docx"))
     assert page is not None
     assert page.path == "tests/resources/test"

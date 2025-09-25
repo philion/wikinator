@@ -108,9 +108,11 @@ def convert(docx_file:Path) -> Page:
     # append images to the array of markdown paragraphs
     markdown.extend(embedded_images(doc))
 
+    title = extract_title(doc, docx_file)
+
     return Page(
         id = "",
-        title = doc.core_properties.title, # docx file metadata
+        title = title,
         path = "",
         content = "\n\n".join(markdown),
         editor = "markdown",
@@ -120,6 +122,15 @@ def convert(docx_file:Path) -> Page:
         isPublished = False,
         isPrivate = True,
     )
+
+
+SKIP_TITLES = ["Word Document"]
+
+def extract_title(doc: docx.Document, path: Path) -> str:
+    if doc.core_properties.title and len(doc.core_properties.title) > 0 and doc.core_properties.title not in SKIP_TITLES:
+        return doc.core_properties.title
+    else:
+        return path.stem
 
 
 def comments(doc:docx.Document) -> list[str]:
