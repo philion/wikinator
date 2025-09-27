@@ -18,7 +18,7 @@ fix:
 	uvx ruff check --fix
 
 test:
-	uv run pytest
+	uv run pytest --log-cli-level=DEBUG
 
 build:
 	uv build

@@ -37,6 +37,7 @@ import os
 from lxml import etree
 from pathlib import Path, PurePath
 import logging
+from typing import Self
 
 from .page import Page
 from .converter import Converter
@@ -81,9 +82,14 @@ def convert(docx_file:Path) -> Page:
                 log.error("Unsupported style:", style_name)
 
             content = parse_run(paragraph)
+            # content = StyledText.from_run(paragraph)
 
-            md_paragraph += content
-            markdown.append(md_paragraph)
+
+            #log.debug(f"---{md_paragraph}|{content}")
+            md_paragraph += str(content)
+            md_paragraph = md_paragraph.strip()
+            if len(md_paragraph) > 0:
+                markdown.append(md_paragraph)
 
         elif block.tag.endswith('tbl'):  # Handle tables (if present)
             table = tables.pop(0)  # Match current table
@@ -277,13 +283,13 @@ def get_list_marker(paragraph):
     return "* "
 
 
-def is_list(paragraph) -> bool:
+def is_list(paragraph: docx.text.paragraph.Paragraph) -> bool:
     p = paragraph._element
     numPr = p.find(".//w:numPr", namespaces=p.nsmap)
     return numPr is not None
 
 
-def get_bullet_point_prefix(paragraph):
+def get_bullet_point_prefix(paragraph: docx.text.paragraph.Paragraph):
     """
     Determine the Markdown prefix for a bullet point
     based on its indentation level.
@@ -293,15 +299,101 @@ def get_bullet_point_prefix(paragraph):
     return "  " * level + marker
 
 
-def parse_run(run):
+# class StyledText:
+#     def __init__(self):
+#         self._blorb : str = "",
+#         self.momo : str = "",
+#         self.bold = False
+#         self.italic = False
+#         self.underline = False
+#         self.strike = False
+#         self.mono = False
+
+#     @staticmethod
+#     def from_run(run):
+#         styled = StyledText()
+#         if isinstance(run, docx.text.run.Run):
+#             # copy style
+#             styled.bold = run.bold
+#             styled.italic = run.italic
+#             styled.underline = run.underline
+#             styled.strike = run.font.strike
+#             # check .font for monospacing
+#             if run.font.name in KNOWN_MONO_FONTS:
+#                 styled.mono = True
+
+#         # check text
+#         for s in run.iter_inner_content():
+#             if isinstance(s, str):
+#                 log.info(f"^^^^ '{s}'")
+#                 styled.append(s)
+#             elif isinstance(s, docx.text.run.Run):
+#                 subtext = StyledText.from_run(s)
+#                 styled.append_styled(subtext)
+#             elif isinstance(s, docx.text.hyperlink.Hyperlink):
+#                 styled.append(f"[{s.text}]({s.address})")
+#             elif isinstance(s, docx.drawing.Drawing):
+#                 rId = extract_r_embed(s._element.xml)
+#                 styled.append(f"![][image{rId[3:]}]")
+#             else:
+#                 log.warning(f"unknown run type: {s}")
+
+#         return styled
+
+
+#     def __str__(self) -> str:
+#         _str = str(self.momo) # WFT why all all the strings typles?
+
+#         # for mono, don't process the other styles
+#         if self.mono:
+#             return f"`{_str}`"
+
+#         # otherwise, stack the styles
+#         if self.bold:
+#             _str = f"**{_str}**"
+#         if self.italic:
+#             _str = f"*{_str}*"
+#         if self.underline:
+#             _str = f"__{_str}__"
+#         if self.strike:
+#             _str = f"~~{_str}~~"
+
+#         return _str
+
+
+#     def append(self, text:str):
+#         # to establish builder pattern
+#         # assumes styles have already been matched
+#         log.info(f"^^^^ SELF {type(self._blorb)} {self._blorb}")
+#         log.info(f"^^^^ TEXT {type(text)} {text}")
+
+#         self._blorb = str(self._blorb) + text
+
+
+#     def append_styled(self, subtext: Self):
+#         if self.bold == subtext.bold and \
+#            self.italic == subtext.italic and \
+#            self.underline == subtext.underline and \
+#            self.strike == subtext.strike and \
+#            self.mono == subtext.mono:
+
+#             self.append(subtext.momo) # confirm matching styles
+#         else:
+#             self.append(str(subtext)) # stringify to apply formatting
+
+
+KNOWN_MONO_FONTS = ["Courier New"] # TODO: More fonts
+
+
+def parse_run(run: docx.text.run.Run):
     """Go through document objects recursively and return markdown."""
-    sub_parts = list(run.iter_inner_content())
     text = ""
-    for s in sub_parts:
+    for s in run.iter_inner_content():
         if isinstance(s, str):
             text += s
         elif isinstance(s, docx.text.run.Run):
-            text += parse_run(s)
+
+            text += parse_run(s) # FIXME same-type run, might apply formatting!
         elif isinstance(s, docx.text.hyperlink.Hyperlink):
             text += f"[{s.text}]({s.address})"
         elif isinstance(s, docx.drawing.Drawing):
@@ -320,32 +412,14 @@ def parse_run(run):
         if run.font.strike:
             text = f"~~{text}~~"
         # check .font for monospacing
-        # check style
         if run.font.name == "Courier New": # more fonts!
-            text = f"`{text}`<br>"
+            text = f"`{text}`"
+            # FIXME: need a way to extend a run: if last para ends with...
 
-        comment_id = extract_comment_id(run._element.xml)
-        if comment_id:
-            #log.debug(f"### found comment ID: {comment_id}")
-            text += f"[^{comment_id}]"
-
-# <w:r xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"
-# xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"
-# xmlns:wp="http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing"
-# xmlns:w10="urn:schemas-microsoft-com:office:word"
-# xmlns:w14="http://schemas.microsoft.com/office/word/2010/wordml"
-# xmlns:wps="http://schemas.microsoft.com/office/word/2010/wordprocessingShape"
-# xmlns:wpg="http://schemas.microsoft.com/office/word/2010/wordprocessingGroup"
-# xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-# xmlns:v="urn:schemas-microsoft-com:vml"
-# xmlns:o="urn:schemas-microsoft-com:office:office"
-# xmlns:m="http://schemas.openxmlformats.org/officeDocument/2006/math">
-#  <w:commentReference w:id="3"/>
-#</w:r>
-
-    #else:
-    #
-    #     log.warning(f"type: {type(run)}, {run}")
+    comment_id = extract_comment_id(run._element.xml)
+    if comment_id:
+        #log.debug(f"### found comment ID: {comment_id}")
+        text += f"[^{comment_id}]"
 
     return text
 
@@ -355,7 +429,7 @@ class DocxitConverter(Converter):
         """
         Converts a docx file into markdown using docxit
         """
-        return convert_out(infile, self.root, outroot)
+        return self.convert_out(infile, self.root, outroot)
 
 
     @staticmethod
