@@ -10,7 +10,7 @@ class Converter:
     root: Path # Root for file walk, and to resolve rol paths
 
 
-    def convert_out(self, infile:Path, outroot:Path) -> Page:
+    def convert(self, infile:Path, outroot:Path) -> Page:
         raise NotImplementedError
 
 

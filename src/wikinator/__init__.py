@@ -7,6 +7,8 @@ from typing_extensions import Annotated
 import os
 from dotenv import load_dotenv
 
+from wikinator.docxit import DocxitConverter
+
 
 from .wiki import GraphIngester, GraphDB
 
@@ -115,16 +117,12 @@ def common(
     pass
 
 
-
-# TODO
-
-
-# @app.command()
-# def convert(
-#     source: str,
-#     destination: Annotated[str, typer.Argument()] = "."
-# ) -> None:
-#     DocxitConverter().convert_directory(source, destination)
+@app.command()
+def convert(
+    source: str,
+    destination: Annotated[str, typer.Argument()] = "."
+) -> None:
+    DocxitConverter().convert_directory(source, destination)
 
 
 #- extract : from googledocs -> file system

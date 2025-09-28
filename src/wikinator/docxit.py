@@ -31,6 +31,8 @@
 # under the provided MIT license.
 
 import re
+
+import humanize
 import docx
 import base64
 import os
@@ -38,6 +40,8 @@ from lxml import etree
 from pathlib import Path, PurePath
 import logging
 from typing import Self
+from io import BytesIO
+from PIL import Image
 
 from .page import Page
 from .converter import Converter
@@ -159,27 +163,101 @@ def write_images(doc:docx.Document, outroot:Path):
             images[rel.rId] = image_filename[len(outroot)+1:]
             # use relative
             log.info("image file:", rel.rId, ":", image_filename, "-->", images[rel.rId])
-        else:
-            log.info(f"rel.rId={rel.rId}, rel.reltype={rel.reltype}")
+        # else:
+        #     log.info(f"rel.rId={rel.rId}, rel.reltype={rel.reltype}")
     return images
+
+
+MAX_UPLOAD_SIZE = 5 * 1000 * 1000
+OVERSIZE_SIZE = 1000 # px
+OVERSIZE_SCALE_FACTOR = 0.5
+
+
+def image_scale_factor(doc:docx.Document) -> float:
+    """Analyze the images to determine total encoded size, and what % that has to be reduced"""
+    total_size = 0
+    for rel in doc.part.rels.values():
+        if "image" in rel.reltype:
+            # rId is in the form "rId18"
+            #anchor = f"image{rel.rId[3:]}"
+            content = base64.b64encode(rel.target_part.blob).decode('utf-8')
+            total_size += len(content)
+
+    if total_size < MAX_UPLOAD_SIZE:
+        return 1.0 # no scale!
+    else:
+        return MAX_UPLOAD_SIZE / total_size
 
 
 def embedded_images(doc:docx.Document) -> list[str]:
     """
-    Append DOCX images inline in the markdown
+    Append DOCX images inline in the markdown.
+    Produces a list of base64-encoded images.
     """
+
+    scale_factor = image_scale_factor(doc)
+    #log.info(f"=== scale factor: {scale_factor * 100:.2f}%")
+
     images = []
+    total_size = 0
+    max = 0
     for rel in doc.part.rels.values():
         if "image" in rel.reltype:
             # rId is in the form "rId18"
-            anchor = f"image{rel.rId[3:]}"
-            content = base64.b64encode(rel.target_part.blob).decode('utf-8')
-            log.info(f"appening image id: {anchor}, size: {len(content)}")
-            images.append(f"[{anchor}]: <data:image/png;base64,{content}>\n\n")
-        else:
-            log.info(f"rel.rId={rel.rId}, rel.reltype={rel.reltype}")
+            anchor = f"image{rel.rId[3:]}" # image18
+            encoded = compress_image(rel.target_part, scale_factor)
+            encoded_image_size = len(encoded)
+            total_size += encoded_image_size
+            if encoded_image_size > max:
+                max = encoded_image_size
+            #log.info(f"IMAGE id: {anchor}, size: {humanize.naturalsize(encoded_image_size)}, running total: {humanize.naturalsize(total_size)}")
+            images.append(f"[{anchor}]: <data:image/png;base64,{encoded}>\n\n")
+
+    #log.warning(f"Total image size: {humanize.naturalsize(total_size)}, {len(images)} images")
+    if total_size > MAX_UPLOAD_SIZE:
+        log.warning(f"--- Total image size: {humanize.naturalsize(total_size)} exceeds {humanize.naturalsize(MAX_UPLOAD_SIZE)}")
+        num_images = len(images)
+        average = 1.0 * total_size / num_images
+        log.warning(f"--- Total images: {num_images}, avg size: {humanize.naturalsize(average)}, max: {humanize.naturalsize(max)}")
 
     return images
+
+
+def compress_image(target, scale_factor:float) -> str:
+    content = target.blob
+    before = len(base64.b64encode(content).decode('utf-8'))
+    name = target.partname
+
+    image_data = BytesIO(content)
+    image = Image.open(image_data)
+
+    #log.info(f"IMAGE {name}, type: {target.content_type}")
+    image_format = target.content_type.lower()
+    if image_format.startswith("image/"):
+        image_format = image_format[6:]
+
+    #if scale_factor < 1.0:
+    if image.size[0] > OVERSIZE_SIZE or image.size[1] > OVERSIZE_SIZE:
+        # resize the image
+        w = round(image.size[0] * OVERSIZE_SCALE_FACTOR)
+        h = round(image.size[1] * OVERSIZE_SCALE_FACTOR)
+        log.info(f"RESIZE {name}: {image.size[0]}, {image.size[1]} -> {w}, {h}")
+        image = image.resize((w, h), Image.LANCZOS)
+
+    compressed = BytesIO()
+    image.save(compressed, format=image_format, quality=85, optimize=True)
+    compressed = compressed.getbuffer()
+
+    # don't know why, but it's often the case
+    if len(compressed) > len(content):
+        compressed = content
+
+    encoded = base64.b64encode(compressed).decode('utf-8')
+    after = len(encoded)
+
+    log.info(f"IMAGE {name}, before: {humanize.naturalsize(before)}, after: {humanize.naturalsize(after)}, {after/before*100:.2f}%, dim:{image.size}")
+
+    return encoded
 
 
 def extract_r_embed(xml_string):
@@ -266,6 +344,8 @@ def get_list_marker(paragraph):
     numPr = p.find(".//w:numPr", namespaces=p.nsmap)
     ilvl = numPr.find(".//w:numId", namespaces=p.nsmap)
     type_id = int(ilvl.get("{http://schemas.openxmlformats.org/wordprocessingml/2006/main}val"))
+
+    # FIXME: Need to look up types!
 
     match type_id:
         case 1:
@@ -429,7 +509,9 @@ class DocxitConverter(Converter):
         """
         Converts a docx file into markdown using docxit
         """
-        return self.convert_out(infile, self.root, outroot)
+        page = DocxitConverter.load_file(infile)
+        page.path = f"{outroot}/{infile.parent}/{infile.stem}"
+        return page
 
 
     @staticmethod
