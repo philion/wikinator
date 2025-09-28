@@ -91,7 +91,6 @@ def convert(docx_file:Path) -> Page:
 
             #log.debug(f"---{md_paragraph}|{content}")
             md_paragraph += str(content)
-            md_paragraph = md_paragraph.strip()
             if len(md_paragraph) > 0:
                 markdown.append(md_paragraph)
 
@@ -308,14 +307,12 @@ def extract_comment_id(xml_string) -> int:
         return None
 
 
-
 def extract_attribute_safely(tree, xpath, attr):
     """Extract attribute with proper None checking"""
     element = tree.find(xpath)
     if element is not None:
         return element.get(attr, "")  # Default to empty string
     return ""
-
 
 
 def save_image(image_part, output_folder):
@@ -354,6 +351,8 @@ def get_list_marker(paragraph):
             return '- [ ] '
         case 3:
             return '* '
+        case 4:
+            return '1. '
         case _:
             log.debug(f"Unknown list type id: {type_id}")
             # got for 9, 5, 8, 10.
@@ -376,7 +375,10 @@ def get_bullet_point_prefix(paragraph: docx.text.paragraph.Paragraph):
     """
     level = get_list_level(paragraph)
     marker = get_list_marker(paragraph)
-    return "  " * level + marker
+    bullet_point = "    " * level + marker
+    log.warning(f"level={level}, bullet='{bullet_point}'")
+
+    return bullet_point
 
 
 # class StyledText:
