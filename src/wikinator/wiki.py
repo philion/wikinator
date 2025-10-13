@@ -1,8 +1,6 @@
-import os
 import logging
 from pathlib import Path
 
-from dotenv import load_dotenv
 
 from gql import Client, gql
 from gql.transport.aiohttp import AIOHTTPTransport

@@ -34,6 +34,7 @@ class Page:
         self.tags = tags
         self.title = title
         self.description = description
+        self.comments = []
 
 
     @classmethod

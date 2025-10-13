@@ -37,7 +37,7 @@ import docx
 import base64
 import os
 from lxml import etree
-from pathlib import Path, PurePath
+from pathlib import Path
 import logging
 from typing import Self
 from io import BytesIO
@@ -50,10 +50,96 @@ from .converter import Converter
 log = logging.getLogger(__name__)
 
 
+class CommentBlock:
+    def __init__(self, comments: list[int]):
+        self.comments = comments
+        self.anchor_id = f"comments{self.comments[0]}" # just using first comment ID
+
+
+    def anchor(self) -> str:
+        # generate a footnot marker for the comment-block
+        #return f"[^{self.anchor_id}]"
+        return f'<a name="{self.anchor_id}"></a>'
+
+
+    def link(self, link_text: str = "Comments") -> str:
+        return f'<a name="{self.anchor_id}-link"></a><sup>[{link_text}](#{self.anchor_id})</sup>'
+
+
+    def backlink(self, link_text: str = "↩") -> str:
+        return f'[{link_text}](#{self.anchor_id}-link)</sup></a>'
+
+
+    def comments_from_doc(self, doc:docx.Document) -> str:
+        """
+        Build the comment block in markdown,
+        as a footnote with formatting and time-ordered
+        comments
+        """
+        comment_str = self.anchor() + "\n"
+        for comment_id in self.comments:
+            comment = doc.comments.get(comment_id)
+            if comment:
+                datestr = comment.timestamp.strftime('%y-%m-%d %H:%M')
+                comment_str += f"{self.backlink()} **{comment.author}**<br/>\n*{datestr}*<br/>\n"
+                # note: the comment might contain styling. this strips that. might FIXME
+                comment_str += comment.text + "\n\n"
+
+        comment_str += "---\n\n"
+        return comment_str
+
+
+    def __str__(self):
+        return f"{self.anchor()}: {self.comments}"
+
+
+    @staticmethod
+    def from_run(run:docx.text.run.Run):
+        """Returns a list of comments referenced in the run, or None"""
+        if not run:
+            return None
+
+        # scan the next elements (siblings) for commentRangeEnd
+        # and skipping empty runs.
+
+        comments = []
+        next = run._element.getnext()
+        while next is not None:
+            if isinstance(next, docx.oxml.text.run.CT_R):
+                # skip empty text, break on non-empty
+                if len(next.text) > 0:
+                    break
+            elif next.tag.endswith("commentRangeEnd"):
+                # found a comment-end before the next text, store it
+                comment_id = next.values()[0]
+                comments.append(comment_id)
+            next = next.getnext()
+
+        if len(comments) > 0:
+            return CommentBlock(comments)
+        else:
+            return None
+
+
 ### new convert file -> memory
 def convert(docx_file:Path) -> Page:
     doc = docx.Document(docx_file)
+    page = Page(
+        id = "",
+        title = extract_title(doc, docx_file),
+        path = "",
+        content = "",
+        editor = "markdown",
+        locale = "en",
+        tags = doc.core_properties.keywords, # docx file metadata
+        description = f"generated from: {docx_file}",
+        isPublished = False,
+        isPrivate = True,
+    )
 
+    numbering = build_numbering_cache(doc)
+
+    # Future NOTE: Page contains paragraphs, paragraphs contain styledtext (run)
     paragraphs = list(doc.paragraphs)
     tables = list(doc.tables)
 
@@ -79,18 +165,21 @@ def convert(docx_file:Path) -> Page:
             elif "Heading 5" in style_name:
                 md_paragraph = "##### "
             elif "Normal" or "normal" in style_name:
-                md_paragraph = ""
                 if is_list(paragraph):
-                    md_paragraph = get_bullet_point_prefix(paragraph)
+                    typeId, level = get_marker(paragraph)
+                    list_format = numbering.get(typeId, level)
+                    # expected not to be null
+                    md_paragraph = str(list_format)
+
+                    # old md_paragraph = get_bullet_point_prefix(doc, paragraph)
             else:
                 log.error("Unsupported style:", style_name)
 
-            content = parse_run(paragraph)
-            # content = StyledText.from_run(paragraph)
+            text = StyledText.from_run(paragraph, page)
+            content = str(text)
+            #log.warning(f"+++{md_paragraph}|{content}")
 
-
-            #log.debug(f"---{md_paragraph}|{content}")
-            md_paragraph += str(content)
+            md_paragraph += content
             if len(md_paragraph) > 0:
                 markdown.append(md_paragraph)
 
@@ -106,31 +195,22 @@ def convert(docx_file:Path) -> Page:
 
         elif block.tag.endswith('sectPr') or block.tag.endswith('sdt'):
             # ignore
-            log.debug(f"!!! section ptr: {block}")
+            #log.debug(f"!!! section ptr: {block}")
             pass
         else:
-            log.warning("Unsupported block:", docx_file, block.tag)
+            log.warning("Unknown block:", docx_file, block.tag)
 
-    # append footnotes
-    markdown.extend(comments(doc))
+    # append comments as footnotes
+    for block in page.comments:
+        #log.warning(f"BLOCK: {block.anchor()} - {block.comments}")
+        markdown.append(block.comments_from_doc(doc))
 
     # append images to the array of markdown paragraphs
     markdown.extend(embedded_images(doc))
 
-    title = extract_title(doc, docx_file)
+    page.content = "\n\n".join(markdown)
 
-    return Page(
-        id = "",
-        title = title,
-        path = "",
-        content = "\n\n".join(markdown),
-        editor = "markdown",
-        locale = "en",
-        tags = doc.core_properties.keywords, # docx file metadata
-        description = f"generated from: {docx_file}",
-        isPublished = False,
-        isPrivate = True,
-    )
+    return page
 
 
 SKIP_TITLES = ["Word Document"]
@@ -224,8 +304,8 @@ def embedded_images(doc:docx.Document) -> list[str]:
 
 def compress_image(target, scale_factor:float) -> str:
     content = target.blob
-    before = len(base64.b64encode(content).decode('utf-8'))
-    name = target.partname
+    #before = len(base64.b64encode(content).decode('utf-8'))
+    #name = target.partname
 
     image_data = BytesIO(content)
     image = Image.open(image_data)
@@ -240,7 +320,7 @@ def compress_image(target, scale_factor:float) -> str:
         # resize the image
         w = round(image.size[0] * OVERSIZE_SCALE_FACTOR)
         h = round(image.size[1] * OVERSIZE_SCALE_FACTOR)
-        log.info(f"RESIZE {name}: {image.size[0]}, {image.size[1]} -> {w}, {h}")
+        #log.info(f"RESIZE {name}: {image.size[0]}, {image.size[1]} -> {w}, {h}")
         image = image.resize((w, h), Image.LANCZOS)
 
     compressed = BytesIO()
@@ -252,9 +332,8 @@ def compress_image(target, scale_factor:float) -> str:
         compressed = content
 
     encoded = base64.b64encode(compressed).decode('utf-8')
-    after = len(encoded)
-
-    log.info(f"IMAGE {name}, before: {humanize.naturalsize(before)}, after: {humanize.naturalsize(after)}, {after/before*100:.2f}%, dim:{image.size}")
+    #after = len(encoded)
+    #log.info(f"IMAGE {name}, before: {humanize.naturalsize(before)}, after: {humanize.naturalsize(after)}, {after/before*100:.2f}%, dim:{image.size}")
 
     return encoded
 
@@ -307,12 +386,12 @@ def extract_comment_id(xml_string) -> int:
         return None
 
 
-def extract_attribute_safely(tree, xpath, attr):
-    """Extract attribute with proper None checking"""
-    element = tree.find(xpath)
-    if element is not None:
-        return element.get(attr, "")  # Default to empty string
-    return ""
+# def extract_attribute_safely(tree, xpath, attr):
+#     """Extract attribute with proper None checking"""
+#     element = tree.find(xpath)
+#     if element is not None:
+#         return element.get(attr, "")  # Default to empty string
+#     return ""
 
 
 def save_image(image_part, output_folder):
@@ -336,174 +415,291 @@ def get_list_level(paragraph):
     return 0
 
 
-def get_list_marker(paragraph):
+# <w:start w:val="1"/>
+# <w:numFmt w:val="bullet"/>
+# <w:pStyle w:val="ListBullet3"/>
+# <w:lvlText w:val=""/>
+# <w:lvlJc w:val="left"/>
+class NumberingDef:
+    def __init__(self, abstractId: int, level: int, format: str, style: str, text: str):
+        self.abstractId = int(abstractId)
+        self.level = int(level)
+        self.format = format
+        self.style = style
+        self.text = text
+
+    def is_bullet(self) -> bool:
+        return self.format == "bullet"
+
+
+    def marker(self) -> str:
+        _numbering_types = {
+            "lowerRoman": "i. ",
+            "lowerLetter": "a. ",
+            "upperRoman": "I. ",
+            "upperLetter": "A. ",
+            "decimal": "1. ",
+            "bullet": "* ",
+            "checkBox": "- [ ] ",
+        }
+        if self.format in _numbering_types:
+            return _numbering_types[self.format]
+        else:
+            log.warning(f"Unknown list type: {self.__repr__()}")
+
+
+    def __str__(self):
+        # intention: render the specific numbering
+        return ("    " * self.level) + self.marker()
+
+
+    def __repr__(self):
+        return f"Numbering: format={self.format}, text={self.text}, style={self.style}"
+
+
+class NumberingCache:
+    def __init__(self):
+        self.numbering = {}
+
+
+    def append(self, id: int, level: int, format: NumberingDef):
+        # if id or level are strings, convert to ints
+        id = int(id)
+        level = int(level)
+
+        if id not in self.numbering:
+            self.numbering[id] = {}
+        self.numbering[id][level] = format
+
+
+    def get(self, id: int, level: int) -> NumberingDef:
+        return self.numbering[id][level]
+
+
+
+def build_numbering_cache(doc: docx.document.Document) -> NumberingCache:
+    # 2 tier: numid and level
+    # 2d array(id,level)
+    # filled with
+
+    numberingCache = NumberingCache()
+
+    numbering = doc.part.numbering_part.numbering_definitions
+    if numbering:
+        for item in numbering._numbering:
+            if item.tag.endswith("abstractNum"):
+                abstractId = item.attrib.get("{http://schemas.openxmlformats.org/wordprocessingml/2006/main}abstractNumId")
+                for level in item:
+                    ilvl = level.attrib.get("{http://schemas.openxmlformats.org/wordprocessingml/2006/main}ilvl")
+
+                    format = ""
+                    style = ""
+                    text = ""
+                    for child in level:
+                        if child.tag.endswith("numFmt"):
+                            format = child.attrib.get("{http://schemas.openxmlformats.org/wordprocessingml/2006/main}val")
+                        elif child.tag.endswith("lvlText"):
+                            text = child.attrib.get("{http://schemas.openxmlformats.org/wordprocessingml/2006/main}val")
+                        elif child.tag.endswith("pStyle"):
+                            style = child.attrib.get("{http://schemas.openxmlformats.org/wordprocessingml/2006/main}val")
+
+                    #log.warning(f"**** {ilvl} {format} {text} {style}")
+                    numberDef = NumberingDef(abstractId, ilvl, format, style, text)
+                    numberingCache.append(abstractId, ilvl, numberDef)
+
+    return numberingCache
+
+
+# FIXME: Inspect numbering.xml for the various numbering schemes.
+# really just to figure out list item type: -, *, - [ ], 1., etc.
+
+def get_marker(paragraph: docx.text.paragraph.Paragraph):
     p = paragraph._element
     numPr = p.find(".//w:numPr", namespaces=p.nsmap)
-    ilvl = numPr.find(".//w:numId", namespaces=p.nsmap)
-    type_id = int(ilvl.get("{http://schemas.openxmlformats.org/wordprocessingml/2006/main}val"))
+    if numPr is not None:
+        numId = numPr.find(".//w:numId", namespaces=p.nsmap).val
+        #type_id = numId.get("{http://schemas.openxmlformats.org/wordprocessingml/2006/main}val")
+        #log.warning(f"--| {type(type_id)}: {type_id} ")
 
-    # FIXME: Need to look up types!
+        ilvl = get_list_level(paragraph)
+        #log.warning(f"NUMID numId={numId}, ilvl={ilvl}")
 
-    match type_id:
-        case 1:
-            return '1. '
-        case 2:
-            return '- [ ] '
-        case 3:
-            return '* '
-        case 4:
-            return '1. '
-        case _:
-            log.debug(f"Unknown list type id: {type_id}")
-            # got for 9, 5, 8, 10.
-            # need a way of looking up.
+        return numId, ilvl
+    else:
+        return None, None
 
-    # by default
-    return "* "
+# REMOVE - use numbering
+# def get_list_marker(doc: docx.document.Document, paragraph: docx.text.paragraph.Paragraph):
+#     p = paragraph._element
+#     numPr = p.find(".//w:numPr", namespaces=p.nsmap)
+#     if numPr is not None:
+#         numId = numPr.find(".//w:numId", namespaces=p.nsmap).val
+#         #type_id = numId.get("{http://schemas.openxmlformats.org/wordprocessingml/2006/main}val")
+#         #log.warning(f"--| {type(type_id)}: {type_id} ")
+
+#         ilvl = get_list_level(paragraph)
+#         #log.warning(f"NUMID numId={numId}, ilvl={ilvl}")
+
+#         # FIXME: Need to look up types!
+#         numbering = doc.part.numbering_part.numbering_definitions
+#         #log.warning(f"--- {dir(numbering._numbering)}")
+#         #log.warning(f"--- {type(numbering)} -- {type(numbering._numbering)} ")
+
+#         num = numbering._numbering.num_having_numId(numId)
+#         abstractNumId = num.abstractNumId.val
+#         log.warning(f"abstractNumId {type(abstractNumId)}: {abstractNumId} ")
+
+#         # now, look up in numbering
+#         # no direct access to interna
+#         # FIXME: this can be cached
+#         for abstractNum in numbering._numbering:
+#             if abstractNum.tag.endswith("abstractNum"):
+#                 log.warning("")
 
 
+
+#         match numId:
+#             case 1:
+#                 return '1. '
+#             case 2:
+#                 return '- [ ] '
+#             case 3:
+#                 return '* '
+#             case 4:
+#                 return '1. '
+#             case _:
+#                 log.debug(f"Unknown list type id: {numId}")
+#                 # got for 9, 5, 8, 10.
+#                 # need a way of looking up.
+
+#     # by default
+#     return None
+
+
+# NOTE: This can be collapsed into "get list marker(paragr) -> None"
 def is_list(paragraph: docx.text.paragraph.Paragraph) -> bool:
     p = paragraph._element
     numPr = p.find(".//w:numPr", namespaces=p.nsmap)
     return numPr is not None
 
 
-def get_bullet_point_prefix(paragraph: docx.text.paragraph.Paragraph):
-    """
-    Determine the Markdown prefix for a bullet point
-    based on its indentation level.
-    """
-    level = get_list_level(paragraph)
-    marker = get_list_marker(paragraph)
-    bullet_point = "    " * level + marker
-    log.warning(f"level={level}, bullet='{bullet_point}'")
-
-    return bullet_point
-
-
-# class StyledText:
-#     def __init__(self):
-#         self._blorb : str = "",
-#         self.momo : str = "",
-#         self.bold = False
-#         self.italic = False
-#         self.underline = False
-#         self.strike = False
-#         self.mono = False
-
-#     @staticmethod
-#     def from_run(run):
-#         styled = StyledText()
-#         if isinstance(run, docx.text.run.Run):
-#             # copy style
-#             styled.bold = run.bold
-#             styled.italic = run.italic
-#             styled.underline = run.underline
-#             styled.strike = run.font.strike
-#             # check .font for monospacing
-#             if run.font.name in KNOWN_MONO_FONTS:
-#                 styled.mono = True
-
-#         # check text
-#         for s in run.iter_inner_content():
-#             if isinstance(s, str):
-#                 log.info(f"^^^^ '{s}'")
-#                 styled.append(s)
-#             elif isinstance(s, docx.text.run.Run):
-#                 subtext = StyledText.from_run(s)
-#                 styled.append_styled(subtext)
-#             elif isinstance(s, docx.text.hyperlink.Hyperlink):
-#                 styled.append(f"[{s.text}]({s.address})")
-#             elif isinstance(s, docx.drawing.Drawing):
-#                 rId = extract_r_embed(s._element.xml)
-#                 styled.append(f"![][image{rId[3:]}]")
-#             else:
-#                 log.warning(f"unknown run type: {s}")
-
-#         return styled
+# # REMOVE - user numbering
+# def get_bullet_point_prefix(doc: docx.document.Document, paragraph: docx.text.paragraph.Paragraph):
+#     """
+#     Determine the Markdown prefix for a bullet point
+#     based on its indentation level.
+#     """
+#     level = get_list_level(paragraph)
+#     marker = get_list_marker(doc, paragraph)
+#     bullet_point = "    " * level + marker
+#     #log.warning(f"level={level}, bullet='{bullet_point}'")
+#     return bullet_point
 
 
-#     def __str__(self) -> str:
-#         _str = str(self.momo) # WFT why all all the strings typles?
+class StyledText:
+    def __init__(self, page: Page, text: str = ""):
+        assert page is not None
+        self.page = page
+        self.text = text
+        self.bold = False
+        self.italic = False
+        self.underline = False
+        self.strike = False
+        self.mono = False
 
-#         # for mono, don't process the other styles
-#         if self.mono:
-#             return f"`{_str}`"
+    @staticmethod
+    def from_run(run: docx.text.run.Run, page: Page):
+        styled = StyledText(page)
+        if isinstance(run, docx.text.run.Run):
+            # copy style
+            styled.bold = run.bold
+            styled.italic = run.italic
+            styled.underline = run.underline
+            styled.strike = run.font.strike
+            # check .font for monospacing
+            if run.font.name in KNOWN_MONO_FONTS:
+                styled.mono = True
 
-#         # otherwise, stack the styles
-#         if self.bold:
-#             _str = f"**{_str}**"
-#         if self.italic:
-#             _str = f"*{_str}*"
-#         if self.underline:
-#             _str = f"__{_str}__"
-#         if self.strike:
-#             _str = f"~~{_str}~~"
+        # check text
+        for s in run.iter_inner_content():
+            # TODO switch on type
+            if isinstance(s, str):
+                #log.info(f"^^^^ '{s}'")
+                styled.append(s)
+            elif isinstance(s, docx.text.run.Run):
+                subtext = StyledText.from_run(s, page)
+                styled.append_styled(subtext)
+            elif isinstance(s, docx.text.hyperlink.Hyperlink):
+                styled.append(f"[{s.text}]({s.address})")
+            elif isinstance(s, docx.drawing.Drawing):
+                rId = extract_r_embed(s._element.xml)
+                styled.append(f"![][image{rId[3:]}]")
+            elif isinstance(s, docx.text.pagebreak.RenderedPageBreak):
+                styled.append("\n\n-----\n\n")
+            else:
+                log.warning(f"unknown run type: {s}")
 
-#         return _str
+        if len(styled.text) == 0:
+            return None
+
+        comments = CommentBlock.from_run(run)
+        #log.warning(f"from RUN: {styled.text[:20]} {comments}")
+        if comments:
+            # capture the comments for later display
+            styled.page.comments.append(comments)
+            # write the comment anchor link to the text
+            styled.append(comments.link())
+
+        return styled
 
 
-#     def append(self, text:str):
-#         # to establish builder pattern
-#         # assumes styles have already been matched
-#         log.info(f"^^^^ SELF {type(self._blorb)} {self._blorb}")
-#         log.info(f"^^^^ TEXT {type(text)} {text}")
+    def __str__(self) -> str:
+        if not self.text:
+            return ""
 
-#         self._blorb = str(self._blorb) + text
+        _str = str(self.text)
+
+        # for mono, don't process the other styles
+        if self.mono:
+            return f"`{_str}`"
+
+        # otherwise, stack the styles
+        if self.bold:
+            _str = f"**{_str}**"
+        if self.italic:
+            _str = f"*{_str}*"
+        if self.underline:
+            _str = f"__{_str}__"
+        if self.strike:
+            _str = f"~~{_str}~~"
+
+        return _str
 
 
-#     def append_styled(self, subtext: Self):
-#         if self.bold == subtext.bold and \
-#            self.italic == subtext.italic and \
-#            self.underline == subtext.underline and \
-#            self.strike == subtext.strike and \
-#            self.mono == subtext.mono:
+    def append(self, new_text:str):
+        # to establish builder pattern
+        # assumes styles have already been matched
+        self.text += new_text
 
-#             self.append(subtext.momo) # confirm matching styles
-#         else:
-#             self.append(str(subtext)) # stringify to apply formatting
+
+    def append_styled(self, subtext: Self):
+        if not subtext:
+            # ignore empty subtext
+            return
+
+        if self.bold == subtext.bold and \
+           self.italic == subtext.italic and \
+           self.underline == subtext.underline and \
+           self.strike == subtext.strike and \
+           self.mono == subtext.mono:
+
+            self.append(subtext.text) # confirm matching styles
+        else:
+            # NOTE: This is where a list of sub-styledtests would be kept
+            self.append(str(subtext)) # stringify to apply formatting
 
 
 KNOWN_MONO_FONTS = ["Courier New"] # TODO: More fonts
-
-
-def parse_run(run: docx.text.run.Run):
-    """Go through document objects recursively and return markdown."""
-    text = ""
-    for s in run.iter_inner_content():
-        if isinstance(s, str):
-            text += s
-        elif isinstance(s, docx.text.run.Run):
-
-            text += parse_run(s) # FIXME same-type run, might apply formatting!
-        elif isinstance(s, docx.text.hyperlink.Hyperlink):
-            text += f"[{s.text}]({s.address})"
-        elif isinstance(s, docx.drawing.Drawing):
-            rId = extract_r_embed(s._element.xml)
-            text += f"![][image{rId[3:]}]"
-        else:
-            log.warning(f"unknown run type: {s}")
-
-    if isinstance(run, docx.text.run.Run):
-        if run.bold:
-            text = f"**{text}**"
-        if run.italic:
-            text = f"*{text}*"
-        if run.underline:
-            text = f"__{text}__"
-        if run.font.strike:
-            text = f"~~{text}~~"
-        # check .font for monospacing
-        if run.font.name == "Courier New": # more fonts!
-            text = f"`{text}`"
-            # FIXME: need a way to extend a run: if last para ends with...
-
-    comment_id = extract_comment_id(run._element.xml)
-    if comment_id:
-        #log.debug(f"### found comment ID: {comment_id}")
-        text += f"[^{comment_id}]"
-
-    return text
 
 
 class DocxitConverter(Converter):
