@@ -113,7 +113,7 @@ class GraphDB:
                 }
                 ''')
             try:
-                return self.client.execute(query, variable_values=vars(page))
+                return self.client.execute(query, variable_values=page.vars())
             except TransportQueryError as e:
                 log.error(f"update failed on {page.path}: {e}")
         else:
@@ -164,7 +164,7 @@ class GraphDB:
             '''
         )
         try:
-            response = self.client.execute(query, variable_values=vars(page))
+            response = self.client.execute(query, variable_values=page.vars())
 
             log.warning(response)
 

@@ -131,3 +131,13 @@ class Page:
         filename = self.filename(root)
         log.info(f"writing {filename}")
         self.write_file(filename)
+
+
+    def append_comment(self, comment) -> None:
+        self.comments.append(comment)
+
+
+    def vars(self):
+        temp = vars(self)
+        del temp["comments"]
+        return temp

@@ -40,10 +40,10 @@ def test_numbering_cache():
     assert check is not None
 
 
-def xxx_test_bullets():
+def test_bullets():
     expected_lines = {
         1: "**Experiment",
-        3: "1. After deploying"
+        3: "1. After deploying",
     }
     # load file
     test_file = Path("tests/resources/bullet-test.docx")
@@ -62,11 +62,7 @@ def xxx_test_bullets():
         lineno += 1
 
         #log.warning(f"### {lineno}: {line}")
+        #log.warning(f"{lineno}: {line}")
         if lineno in expected_lines:
             expected = expected_lines[lineno]
             assert line.startswith(expected), f"expect '{expected}' at beginning of '{line}'"
-        #log.debug(f"{lineno}: {line}")
-
-    # REMOVE: write the file to see what's in content, to write tests about what's expected
-    with open(page.title + '.md', "w") as md_file:
-        md_file.write(page.content)

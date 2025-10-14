@@ -175,13 +175,12 @@ def convert(docx_file:Path) -> Page:
             else:
                 log.error("Unsupported style:", style_name)
 
-            text = StyledText.from_run(paragraph, page)
-            content = str(text)
-            #log.warning(f"+++{md_paragraph}|{content}")
-
-            md_paragraph += content
-            if len(md_paragraph) > 0:
-                markdown.append(md_paragraph)
+            styled = StyledText.from_run(paragraph, page)
+            if styled is not None:
+                content = str(styled)
+                md_paragraph += content
+                if len(md_paragraph) > 0:
+                    markdown.append(md_paragraph)
 
         elif block.tag.endswith('tbl'):  # Handle tables (if present)
             table = tables.pop(0)  # Match current table
@@ -476,38 +475,59 @@ class NumberingCache:
         return self.numbering[id][level]
 
 
+class DefaultNumbering(NumberingCache):
+    def get(self, id:int, level:int) -> NumberingDef:
+        _formats = [
+            "decimal",
+            "decimal",
+            "decimal",
+            "decimal",
+            "bullet",
+            "bullet",
+            "bullet",
+            "decimal",
+            "bullet",
+        ]
+        result = super().get(id, level)
+        if result is not None:
+            return result
+        else:
+            return NumberingDef(id, level, format=_formats[id], style=None, text=None)
+
 
 def build_numbering_cache(doc: docx.document.Document) -> NumberingCache:
     # 2 tier: numid and level
     # 2d array(id,level)
     # filled with
 
-    numberingCache = NumberingCache()
+    try:
+        numberingCache = NumberingCache()
+        numbering = doc.part.numbering_part.numbering_definitions
+        if numbering:
+            for item in numbering._numbering:
+                if item.tag.endswith("abstractNum"):
+                    abstractId = item.attrib.get("{http://schemas.openxmlformats.org/wordprocessingml/2006/main}abstractNumId")
+                    for level in item:
+                        ilvl = level.attrib.get("{http://schemas.openxmlformats.org/wordprocessingml/2006/main}ilvl")
 
-    numbering = doc.part.numbering_part.numbering_definitions
-    if numbering:
-        for item in numbering._numbering:
-            if item.tag.endswith("abstractNum"):
-                abstractId = item.attrib.get("{http://schemas.openxmlformats.org/wordprocessingml/2006/main}abstractNumId")
-                for level in item:
-                    ilvl = level.attrib.get("{http://schemas.openxmlformats.org/wordprocessingml/2006/main}ilvl")
+                        format = ""
+                        style = ""
+                        text = ""
+                        for child in level:
+                            if child.tag.endswith("numFmt"):
+                                format = child.attrib.get("{http://schemas.openxmlformats.org/wordprocessingml/2006/main}val")
+                            elif child.tag.endswith("lvlText"):
+                                text = child.attrib.get("{http://schemas.openxmlformats.org/wordprocessingml/2006/main}val")
+                            elif child.tag.endswith("pStyle"):
+                                style = child.attrib.get("{http://schemas.openxmlformats.org/wordprocessingml/2006/main}val")
 
-                    format = ""
-                    style = ""
-                    text = ""
-                    for child in level:
-                        if child.tag.endswith("numFmt"):
-                            format = child.attrib.get("{http://schemas.openxmlformats.org/wordprocessingml/2006/main}val")
-                        elif child.tag.endswith("lvlText"):
-                            text = child.attrib.get("{http://schemas.openxmlformats.org/wordprocessingml/2006/main}val")
-                        elif child.tag.endswith("pStyle"):
-                            style = child.attrib.get("{http://schemas.openxmlformats.org/wordprocessingml/2006/main}val")
-
-                    #log.warning(f"**** {ilvl} {format} {text} {style}")
-                    numberDef = NumberingDef(abstractId, ilvl, format, style, text)
-                    numberingCache.append(abstractId, ilvl, numberDef)
-
-    return numberingCache
+                        #log.warning(f"**** {ilvl} {format} {text} {style}")
+                        numberDef = NumberingDef(abstractId, ilvl, format, style, text)
+                        numberingCache.append(abstractId, ilvl, numberDef)
+        return numberingCache
+    except Exception as e:
+        log.error(f"Unable to access numbering: {e}")
+        return DefaultNumbering()
 
 
 # FIXME: Inspect numbering.xml for the various numbering schemes.
@@ -646,7 +666,7 @@ class StyledText:
         #log.warning(f"from RUN: {styled.text[:20]} {comments}")
         if comments:
             # capture the comments for later display
-            styled.page.comments.append(comments)
+            styled.page.append_comment(comments)
             # write the comment anchor link to the text
             styled.append(comments.link())
 
