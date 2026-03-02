@@ -1,13 +1,17 @@
 import importlib.metadata
 import logging
 import json
+
+import yaml
 import typer
 from typing import Optional
 from typing_extensions import Annotated
 import os
 from dotenv import load_dotenv
+import confuse
 
 from wikinator.docxit import DocxitConverter
+from wikinator.gdrive import GoogleDrive
 
 
 from .wiki import GraphIngester, GraphDB
@@ -17,7 +21,29 @@ __app_name__ = "wikinator"
 __app_version__ = importlib.metadata.version(__app_name__)
 
 
+def load_config():
+    template = {
+        "db_url": "FIXME",
+        "db_token": "FIXME",
+        "log_level": "warning",
+    }
+    config = confuse.Configuration(__app_name__, __name__)
+    config.set_env()
+    return config.get(template)
+
+
+def store_config(old_config):
+    config = confuse.Configuration(__app_name__, __name__)
+    config_filename = os.path.join(config.config_dir(), confuse.CONFIG_FILENAME)
+    with open(config_filename, "w") as f:
+        yaml.dump(config, f)
+
+
+config = load_config()
+
+
 log = logging.getLogger(__name__)
+
 
 app = typer.Typer(add_completion=False)
 
@@ -48,7 +74,12 @@ def init_logging(level:int) -> None:
     # gql.transport.aiohttp = INFO for full transport logging
     log.setLevel(level)
     log.info(f"starting {__app_name__} v{__app_version__}")
-    log.debug("debug logging enabled.")
+    log.debug("debug logging enabled")
+
+
+# initialize logging from config
+init_logging(logging.getLevelName(config['log_level'].upper()))
+log.debug(f"debug logging enabled {config}")
 
 
 def version_callback(value: bool) -> None:
@@ -79,8 +110,8 @@ def trace_callback(value: bool) -> None:
 def upload(
     source: str,
     wikiroot: str = "/",
-    #url: Annotated[str, typer.Option("--db", help="URL of the GraphQL database")] = os.getenv("GRAPH_DB"),
-    #token: Annotated[str, typer.Option("--token", help="URL of the GraphQL database")] = os.getenv("AUTH_TOKEN"),
+    db_url: Annotated[str, typer.Option("--db", help="URL of the GraphQL database")] = config['db_url'],
+    db_token: Annotated[str, typer.Option("--token", help="URL of the GraphQL database")] = config['db_token'],
     output: Annotated[bool, typer.Option("-o", help="Make a local copy of the converted file")] = False,
 ) -> None:
     """
@@ -119,11 +150,47 @@ def common(
 
 @app.command()
 def convert(
-    source: str,
-    destination: Annotated[str, typer.Argument()] = "."
+    doc_url: Annotated[str, typer.Argument(help="URL of the google-doc")],
+    db_url: Annotated[str, typer.Option("--db", help="URL of the GraphQL database. Defaults to $WIKINATOR_DB_URL")] = config['db_url'],
+    path: Annotated[str, typer.Option("--path", help="Path to upload to. Defaults to '/' (root)")] = None,
+    name: Annotated[str, typer.Option("--name", help="Name of the uploaded file. Defaults to '<document-name>.md'")] = None,
+    token: Annotated[str, typer.Option("--token", help="Secure token for GraphQL database. Defaults to $WIKINATOR_DB_TOKEN")] = config['db_token'],
 ) -> None:
-    DocxitConverter().convert_directory(source, destination)
+    """
+    Given the URL of a specific gdoc:
 
+    - download the document
+
+    - convert it to markdown
+
+    - upload the converted file to a GraphQL wiki with /path/name.
+
+    Example:
+
+        uvx wikinator example.com/docker_tutorials.docx --path edu/tutorials
+
+    will create a new wiki entry '/edu/tutorials/docker_tutorials.md' from https://example.com/docker_tutorials.docx
+    """
+    log.debug(f"downloading {doc_url}")
+    page = GoogleDrive().get_doc_url(doc_url)
+
+    if name is not None:
+        page.path = name
+
+    log.debug(f"converting to {page.filename(path)}")
+    # already done by get.
+
+    log.debug(f"uploading to {db_url}/{page.filename(path)}")
+    #db = GraphDB(db_url, token)
+    #db.create(page)
+
+
+
+
+
+
+
+#DocxitConverter().convert_directory(source, destination)
 
 #- extract : from googledocs -> file system
 # @app.command()

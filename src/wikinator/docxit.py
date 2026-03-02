@@ -205,6 +205,9 @@ def convert(docx_file:Path) -> Page:
         markdown.append(block.comments_from_doc(doc))
 
     # append images to the array of markdown paragraphs
+    # Check image size...
+    # Either add the images to the existing markdown array OR write individual files, based in image sizes.
+    # Need different markers in the text!!!
     markdown.extend(embedded_images(doc))
 
     page.content = "\n\n".join(markdown)
@@ -221,14 +224,14 @@ def extract_title(doc: docx.Document, path: Path) -> str:
         return path.stem
 
 
-def comments(doc:docx.Document) -> list[str]:
-    comments = []
-    for comment in doc.comments:
-        # author, text, timestamp
-        datestr = comment.timestamp.strftime('%y-%m-%d %H:%M')
-        comments.append(f"\n[^{comment.comment_id}]: At {datestr}, {comment.author} said: {comment.text.strip()}")
-        log.debug(comment)
-    return comments
+# def comments(doc:docx.Document) -> list[str]:
+#     comments = []
+#     for comment in doc.comments:
+#         # author, text, timestamp
+#         datestr = comment.timestamp.strftime('%y-%m-%d %H:%M')
+#         comments.append(f"\n[^{comment.comment_id}]: At {datestr}, {comment.author} said: {comment.text.strip()}")
+#         log.debug(comment)
+#     return comments
 
 
 def write_images(doc:docx.Document, outroot:Path):
@@ -251,6 +254,7 @@ OVERSIZE_SIZE = 1000 # px
 OVERSIZE_SCALE_FACTOR = 0.5
 
 
+# FIXME: Refactor image scaling to use a flag!
 def image_scale_factor(doc:docx.Document) -> float:
     """Analyze the images to determine total encoded size, and what % that has to be reduced"""
     total_size = 0
@@ -383,14 +387,6 @@ def extract_comment_id(xml_string) -> int:
         return int(m[1])
     else:
         return None
-
-
-# def extract_attribute_safely(tree, xpath, attr):
-#     """Extract attribute with proper None checking"""
-#     element = tree.find(xpath)
-#     if element is not None:
-#         return element.get(attr, "")  # Default to empty string
-#     return ""
 
 
 def save_image(image_part, output_folder):
@@ -548,72 +544,12 @@ def get_marker(paragraph: docx.text.paragraph.Paragraph):
     else:
         return None, None
 
-# REMOVE - use numbering
-# def get_list_marker(doc: docx.document.Document, paragraph: docx.text.paragraph.Paragraph):
-#     p = paragraph._element
-#     numPr = p.find(".//w:numPr", namespaces=p.nsmap)
-#     if numPr is not None:
-#         numId = numPr.find(".//w:numId", namespaces=p.nsmap).val
-#         #type_id = numId.get("{http://schemas.openxmlformats.org/wordprocessingml/2006/main}val")
-#         #log.warning(f"--| {type(type_id)}: {type_id} ")
-
-#         ilvl = get_list_level(paragraph)
-#         #log.warning(f"NUMID numId={numId}, ilvl={ilvl}")
-
-#         # FIXME: Need to look up types!
-#         numbering = doc.part.numbering_part.numbering_definitions
-#         #log.warning(f"--- {dir(numbering._numbering)}")
-#         #log.warning(f"--- {type(numbering)} -- {type(numbering._numbering)} ")
-
-#         num = numbering._numbering.num_having_numId(numId)
-#         abstractNumId = num.abstractNumId.val
-#         log.warning(f"abstractNumId {type(abstractNumId)}: {abstractNumId} ")
-
-#         # now, look up in numbering
-#         # no direct access to interna
-#         # FIXME: this can be cached
-#         for abstractNum in numbering._numbering:
-#             if abstractNum.tag.endswith("abstractNum"):
-#                 log.warning("")
-
-
-
-#         match numId:
-#             case 1:
-#                 return '1. '
-#             case 2:
-#                 return '- [ ] '
-#             case 3:
-#                 return '* '
-#             case 4:
-#                 return '1. '
-#             case _:
-#                 log.debug(f"Unknown list type id: {numId}")
-#                 # got for 9, 5, 8, 10.
-#                 # need a way of looking up.
-
-#     # by default
-#     return None
-
 
 # NOTE: This can be collapsed into "get list marker(paragr) -> None"
 def is_list(paragraph: docx.text.paragraph.Paragraph) -> bool:
     p = paragraph._element
     numPr = p.find(".//w:numPr", namespaces=p.nsmap)
     return numPr is not None
-
-
-# # REMOVE - user numbering
-# def get_bullet_point_prefix(doc: docx.document.Document, paragraph: docx.text.paragraph.Paragraph):
-#     """
-#     Determine the Markdown prefix for a bullet point
-#     based on its indentation level.
-#     """
-#     level = get_list_level(paragraph)
-#     marker = get_list_marker(doc, paragraph)
-#     bullet_point = "    " * level + marker
-#     #log.warning(f"level={level}, bullet='{bullet_point}'")
-#     return bullet_point
 
 
 class StyledText:
@@ -653,7 +589,7 @@ class StyledText:
                 styled.append(f"[{s.text}]({s.address})")
             elif isinstance(s, docx.drawing.Drawing):
                 rId = extract_r_embed(s._element.xml)
-                styled.append(f"![][image{rId[3:]}]")
+                styled.append(f"![][image{rId[3:]}]") ### FIXME: Depends on whether writing images to disk or in the file.
             elif isinstance(s, docx.text.pagebreak.RenderedPageBreak):
                 styled.append("\n\n-----\n\n")
             else:
