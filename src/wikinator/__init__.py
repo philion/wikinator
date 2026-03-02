@@ -1,21 +1,16 @@
 import importlib.metadata
 import logging
-import json
-
-import yaml
-import typer
-from typing import Optional
-from typing_extensions import Annotated
 import os
-from dotenv import load_dotenv
-import confuse
 
-from wikinator.docxit import DocxitConverter
+import confuse
+import typer
+import yaml
+from dotenv import load_dotenv
+from typing_extensions import Annotated
+
 from wikinator.gdrive import GoogleDrive
 
-
-from .wiki import GraphIngester, GraphDB
-
+from .wiki import GraphDB, GraphIngester
 
 __app_name__ = "wikinator"
 __app_version__ = importlib.metadata.version(__app_name__)
@@ -181,11 +176,8 @@ def convert(
     # already done by get.
 
     log.debug(f"uploading to {db_url}/{page.filename(path)}")
-    #db = GraphDB(db_url, token)
-    #db.create(page)
-
-
-
+    db = GraphDB(db_url, token)
+    db.create(page)
 
 
 
