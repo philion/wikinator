@@ -10,10 +10,12 @@ from typing_extensions import Annotated
 
 from wikinator.gdrive import GoogleDrive
 
-from .wiki import GraphDB, GraphIngester
+from .wiki import GraphDB as GraphDB, GraphIngester
+
 
 __app_name__ = "wikinator"
 __app_version__ = importlib.metadata.version(__app_name__)
+__config__ = confuse.Configuration(__app_name__, __name__)
 
 
 def load_config():
@@ -22,24 +24,23 @@ def load_config():
         "db_token": "FIXME",
         "log_level": "warning",
     }
-    config = confuse.Configuration(__app_name__, __name__)
-    config.set_env()
-    return config.get(template)
+    __config__.set_env()
+    return __config__.get(template)
+
+
+def config_dir():
+    from .gdrive import config_link
+    return __config__.config_dir(), config_link
 
 
 def store_config(old_config):
-    config = confuse.Configuration(__app_name__, __name__)
-    config_filename = os.path.join(config.config_dir(), confuse.CONFIG_FILENAME)
+    config_filename = os.path.join(__config__.config_dir(), confuse.CONFIG_FILENAME)
     with open(config_filename, "w") as f:
         yaml.dump(config, f)
 
 
 config = load_config()
-
-
 log = logging.getLogger(__name__)
-
-
 app = typer.Typer(add_completion=False)
 
 
@@ -73,8 +74,9 @@ def init_logging(level:int) -> None:
 
 
 # initialize logging from config
-init_logging(logging.getLevelName(config['log_level'].upper()))
-log.debug(f"debug logging enabled {config}")
+# FIXME
+#init_logging(logging.getLevelName(config['log_level'].upper()))
+#log.debug(f"debug logging enabled {config}")
 
 
 def version_callback(value: bool) -> None:
@@ -99,6 +101,7 @@ def trace_callback(value: bool) -> None:
         comms_trace = logging.getLogger("gql.transport.aiohttp")
         comms_trace.setLevel(logging.INFO)
 
+trace_callback(True)
 
 #- upload  : from files -> graphql
 @app.command()
@@ -167,7 +170,7 @@ def convert(
     will create a new wiki entry '/edu/tutorials/docker_tutorials.md' from https://example.com/docker_tutorials.docx
     """
     log.debug(f"downloading {doc_url}")
-    page = GoogleDrive().get_doc_url(doc_url)
+    page = GoogleDrive(*config_dir()).get_doc_url(doc_url)
 
     if name is not None:
         page.path = name
@@ -176,8 +179,8 @@ def convert(
     # already done by get.
 
     log.debug(f"uploading to {db_url}/{page.filename(path)}")
-    db = GraphDB(db_url, token)
-    db.create(page)
+    #db = GraphDB(db_url, token)
+    #db.create(page)
 
 
 
