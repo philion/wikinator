@@ -122,13 +122,8 @@ def convert(
     token: Annotated[str, typer.Option("--token", help="Secure token for GraphQL database.")] = app_config.get('db_token'),
 ) -> None:
     """
-    Given the URL of a specific gdoc:
-
-    - download the document
-
-    - convert it to markdown
-
-    - upload the converted file to a GraphQL wiki with /path/name.
+    Given the URL of a google doc, and options upload path: download the document, convert it to markdown, and upload
+    the converted file to a GraphQL wiki with /path/name.
 
     Example:
 
@@ -161,6 +156,17 @@ def config(
     name: Annotated[str, typer.Argument(help="Display or set the name of a config value")] = None,
     value: Annotated[str, typer.Argument(help="If provided, set the supplied name to this value")] = None,
 ) -> None:
+    """
+    View or set configuration settings.
+
+    Example:
+
+        uvx wikinator config db_url https://mydb.example.com/graphql
+
+        uvx wikinator config db_token <authorization-token-for-graphdb>
+
+        uvx wikinator config
+    """
     if name and value:
         app_config.set(name, value)
         app_config.write()

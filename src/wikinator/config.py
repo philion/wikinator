@@ -1,7 +1,6 @@
 import importlib
 
 import confuse
-import yaml
 import os
 
 

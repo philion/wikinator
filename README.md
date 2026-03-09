@@ -5,24 +5,22 @@ Convert a Google drive download into a markdown-based wiki.
 **Note**: This is a work in progress, and not all features will be supported or working properly.
 
 ## tl;dr
+[Install `uv`](https://docs.astral.sh/uv/getting-started/installation/) and then:
 ```
-uvx wikinator upload --help
-Usage: wikinator upload [OPTIONS] SOURCE WIKIROOT
-
-  Convert and upload a file hierarchy to a GraphQL wiki. Given a source
-  directrory, walk the directory tree and for each file: - if MD or image
-  file, upload at the same path relative to the wikiroot path - If DOCX,
-  convert to MD and upload at the same path... - Unknown files are skipped.
-  For example, with source=/src and wikiroot=/wiki/root, A DOCX file at
-  /src/dir/some_file.docx will be uploaded to /wiki/root/dir/some_file on the
-  wiki.
-
-Arguments:
-  SOURCE    [required]
-  WIKIROOT  defaults to root of wiki, /
+uvx wikinator --help
+Usage: wikinator [OPTIONS] COMMAND [ARGS]...
 
 Options:
-  --help  Show this message and exit.
+  --version  Display version and exit.
+  -v         Show verbose logging.
+  -vv        Show debug logging.
+  -vvv       Show full trace logging.
+  --help     Show this message and exit.
+
+Commands:
+  upload   Convert and upload a file hierarchy to a GraphQL wiki.
+  convert  Given the URL of a specific gdoc:
+  config   View or set configuration settings.
 ```
 
 Given a directory, convert supported file types into markdown-based files while maintaining names and directory structure. This can then be uploaded into various wiki systems.
@@ -43,9 +41,15 @@ The development log will be kept here until the 1.0 release.
 
 ## Usage
 ```
+uxv wikinator convert https://gdoc/full/url path=test
+
 uvx wikinator upload target_dir
 uvx wikinator upload target_file.md new/path
 ```
+
+`convert` will take a single URL to a google doc, convert it to markdown, and
+upload that to the configured GraphQL server. An optional `path` option is provided
+to specify to path in the wiki to upload the document to.
 
 `upload` loads a full directory into the wiki. In the above examples:
 - Upload the directoy tree at `target_dir` into the wikipath `target_dir`
@@ -55,26 +59,32 @@ Assuming the `en` locale, the final paths in the wiki will be:
 - $GRAPH_DB/en/target_dir/...
 - $GRAPH_DB/en/new/path/target_file
 
-## Install & Configure
+## Configuration
 There is nothing to install, the `wikinator` command can be run from anywhere [`uvx` is installed](https://docs.astral.sh/uv/getting-started/installation/).
 
-To upload to your wiki, you must have the URL and an authorization token.
+To upload to your wiki, you must have:
+1. the URL
+2. an authentication token
+
+Configuring the values in wikinator:
+```
+uvx wikinator config db_url https://db.example.com/graphql
+uvx wikinator config db_token <authentication-token-for-your-graphdb>
+```
+
+When accessing Google docs, `wikinator` will confirm access to the requested files with a browser-based user authentication. These details will be stored in the configuration directory (`uvx wikinator config config_dir`) in `token.json` for future use.
 
 ### wiki.js
 
-TODO: Details on setting up auth token for wikijs.
+This section is specific to the getting configuration values for a wiki.js server.
 
-Create a file in your home directory: `~/.config/wikinator.env`
+You'll need the URL of the server, and the [authentication token](https://docs.requarks.io/dev/api#authentication) for you account.
 
-In that file, add your wiki GraphQL URL and the access token:
-```
-GRAPH_DB=https://wiki.example.org/graphql
-AUTH_TOKEN=your-authorization-token
-```
+With those values, configure the `db_url` and `db_token` with the `wikinator config` command, as above.
 
-Once this file is set up correctly, `wikinator` is run with:
+Once this file is set up correctly, confirm with with:
 ```
-uvx wikinator upload target_dir
+uvx wikinator config
 ```
 
 
@@ -94,6 +104,11 @@ uvx wikinator upload target_dir
     ```
 
 ## Development Log
+
+### 2026-03-08
+Adding `config` and `convert` commands.
+- `config` helps manage config
+- `convert` will read, convert and upload a google doc
 
 ### 2025-08-07
 Refactored and disabled (for now) the convert, extract and teleport commands. The code remains in place, but the
