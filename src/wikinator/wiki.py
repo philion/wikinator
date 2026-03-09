@@ -1,5 +1,6 @@
 import logging
 from pathlib import Path
+import sys
 
 
 from gql import Client, gql

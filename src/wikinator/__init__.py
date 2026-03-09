@@ -1,45 +1,18 @@
 import importlib.metadata
 import logging
-import os
 
-import confuse
 import typer
-import yaml
-from dotenv import load_dotenv
 from typing_extensions import Annotated
 
+from wikinator.config import AppConfig, __app_name__
 from wikinator.gdrive import GoogleDrive
+from wikinator.wiki import GraphDB as GraphDB
+from wikinator.wiki import GraphIngester
 
-from .wiki import GraphDB as GraphDB, GraphIngester
-
-
-__app_name__ = "wikinator"
-__app_version__ = importlib.metadata.version(__app_name__)
-__config__ = confuse.Configuration(__app_name__, __name__)
+#__app_version__ = importlib.metadata.version(__app_name__)
 
 
-def load_config():
-    template = {
-        "db_url": "FIXME",
-        "db_token": "FIXME",
-        "log_level": "warning",
-    }
-    __config__.set_env()
-    return __config__.get(template)
-
-
-def config_dir():
-    from .gdrive import config_link
-    return __config__.config_dir(), config_link
-
-
-def store_config(old_config):
-    config_filename = os.path.join(__config__.config_dir(), confuse.CONFIG_FILENAME)
-    with open(config_filename, "w") as f:
-        yaml.dump(config, f)
-
-
-config = load_config()
+app_config = AppConfig()
 log = logging.getLogger(__name__)
 app = typer.Typer(add_completion=False)
 
@@ -69,19 +42,17 @@ def init_logging(level:int) -> None:
     logging.basicConfig(level=logging.WARNING, format=fmt, style='{', handlers=(typer_handler,))
     # gql.transport.aiohttp = INFO for full transport logging
     log.setLevel(level)
-    log.info(f"starting {__app_name__} v{__app_version__}")
-    log.debug("debug logging enabled")
+    log.info(f"starting {app_config.value('app_info')}")
 
 
 # initialize logging from config
-# FIXME
-#init_logging(logging.getLevelName(config['log_level'].upper()))
-#log.debug(f"debug logging enabled {config}")
+init_logging(logging.getLevelName(app_config.get('log_level').upper()))
+log.debug("debug logging enabled")
 
 
 def version_callback(value: bool) -> None:
     if value:
-        typer.echo(f"{__app_name__} v{__app_version__}")
+        print(f"{app_config.value('app_info')}")
         raise typer.Exit()
 
 
@@ -101,15 +72,14 @@ def trace_callback(value: bool) -> None:
         comms_trace = logging.getLogger("gql.transport.aiohttp")
         comms_trace.setLevel(logging.INFO)
 
-trace_callback(True)
 
 #- upload  : from files -> graphql
 @app.command()
 def upload(
     source: str,
     wikiroot: str = "/",
-    db_url: Annotated[str, typer.Option("--db", help="URL of the GraphQL database")] = config['db_url'],
-    db_token: Annotated[str, typer.Option("--token", help="URL of the GraphQL database")] = config['db_token'],
+    db_url: Annotated[str, typer.Option("--db", help="URL of the GraphQL database")] = app_config.get('db_url'),
+    db_token: Annotated[str, typer.Option("--token", help="URL of the GraphQL database")] = app_config.get('db_token'),
     output: Annotated[bool, typer.Option("-o", help="Make a local copy of the converted file")] = False,
 ) -> None:
     """
@@ -122,12 +92,9 @@ def upload(
     For example, with source=/src and wikiroot=/wiki/root,
     a DOCX file at /src/dir/some_file.docx will be uploaded to /wiki/root/dir/some_file on the wiki.
     """
-    load_dotenv(dotenv_path=os.path.expanduser("~/.config/wikinator.env"))
-    url = os.getenv("GRAPH_DB")
-    token = os.getenv("AUTH_TOKEN")
-    log.debug(f"Loaded env, db={url}")
+    GraphIngester(url=db_url, token=db_token, output=output).convert_directory(source, wikiroot)
+    raise typer.Exit()
 
-    GraphIngester(url=url, token=token, output=output).convert_directory(source, wikiroot)
 
 
 # Setup global options using callbacks
@@ -149,10 +116,10 @@ def common(
 @app.command()
 def convert(
     doc_url: Annotated[str, typer.Argument(help="URL of the google-doc")],
-    db_url: Annotated[str, typer.Option("--db", help="URL of the GraphQL database. Defaults to $WIKINATOR_DB_URL")] = config['db_url'],
+    db_url: Annotated[str, typer.Option("--db", help="URL of the GraphQL database.")] = app_config.get('db_url'),
     path: Annotated[str, typer.Option("--path", help="Path to upload to. Defaults to '/' (root)")] = None,
     name: Annotated[str, typer.Option("--name", help="Name of the uploaded file. Defaults to '<document-name>.md'")] = None,
-    token: Annotated[str, typer.Option("--token", help="Secure token for GraphQL database. Defaults to $WIKINATOR_DB_TOKEN")] = config['db_token'],
+    token: Annotated[str, typer.Option("--token", help="Secure token for GraphQL database.")] = app_config.get('db_token'),
 ) -> None:
     """
     Given the URL of a specific gdoc:
@@ -165,12 +132,15 @@ def convert(
 
     Example:
 
-        uvx wikinator example.com/docker_tutorials.docx --path edu/tutorials
+        uvx wikinator https://example.com/docker_tutorials.docx --path edu/tutorials
 
     will create a new wiki entry '/edu/tutorials/docker_tutorials.md' from https://example.com/docker_tutorials.docx
+
+    GraphQL credentials can be set on the command line or configured with `wikinator config`. Loading a Googledoc will
+    invoke an authorization flow in the browser to confirm access to document. See README.md#Configuration for details.
     """
     log.debug(f"downloading {doc_url}")
-    page = GoogleDrive(*config_dir()).get_doc_url(doc_url)
+    page = GoogleDrive(*app_config.config_dir()).get_doc_url(doc_url)
 
     if name is not None:
         page.path = name
@@ -179,13 +149,31 @@ def convert(
     # already done by get.
 
     log.debug(f"uploading to {db_url}/{page.filename(path)}")
+    # FIXME
     #db = GraphDB(db_url, token)
     #db.create(page)
 
+    raise typer.Exit()
 
 
+@app.command()
+def config(
+    name: Annotated[str, typer.Argument(help="Display or set the name of a config value")] = None,
+    value: Annotated[str, typer.Argument(help="If provided, set the supplied name to this value")] = None,
+) -> None:
+    if name and value:
+        app_config.set(name, value)
+        app_config.write()
+        log.info(f"Value set: {name} = {value}")
+        raise typer.Exit()
 
-#DocxitConverter().convert_directory(source, destination)
+    if name:
+        print(app_config.value(name))
+        raise typer.Exit()
+
+    for k in app_config.keys():
+        print(f"{k}: {app_config.value(k)}")
+
 
 #- extract : from googledocs -> file system
 # @app.command()
