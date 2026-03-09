@@ -6,7 +6,7 @@ import docx
 
 from wikinator.docxit import CommentBlock, build_numbering_cache, get_marker
 from wikinator.wiki import GraphDB
-from wikinator.config import load_config
+from wikinator.config import AppConfig
 
 # Not directly related to processing docs, but useful in development and understanding of the DOCX structures.
 
@@ -181,12 +181,10 @@ def docx_dump(filename:str):
 
 
 def load_docs():
-    config = load_config()
+    config = AppConfig()
 
-    url = config['db_url']
-    token = config['db_token']
-
-    print(f"url: {url}, token: {token[:8]}...{token[-8:]}")
+    url = config.get('db_url')
+    token = config.get('db_token')
 
     db = GraphDB(url, token)
     for doc in db.pageCache:

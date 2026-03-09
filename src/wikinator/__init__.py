@@ -144,9 +144,8 @@ def convert(
     # already done by get.
 
     log.debug(f"uploading to {db_url}/{page.filename(path)}")
-    # FIXME
-    #db = GraphDB(db_url, token)
-    #db.create(page)
+    db = GraphDB(db_url, token)
+    db.create(page)
 
     raise typer.Exit()
 
