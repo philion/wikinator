@@ -140,12 +140,12 @@ def convert(
     if name is not None:
         page.path = name
 
-    log.debug(f"converting to {page.filename(path)}")
-    # already done by get.
+    if path is not None:
+        page.update_path(path)
 
-    log.debug(f"uploading to {db_url}/{page.filename(path)}")
+    log.debug(f"uploading to {db_url}/{page.path}")
     db = GraphDB(db_url, token)
-    db.create(page)
+    db.update(page)
 
     raise typer.Exit()
 
