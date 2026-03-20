@@ -1,6 +1,7 @@
 import json
 from pathlib import Path
 import logging
+import re
 
 
 log = logging.getLogger(__name__)
@@ -47,7 +48,7 @@ class Page:
             isPrivate = params.get("isPrivate"),
             locale = params.get("locale"),
             path = params.get("path"),
-            tags = params.get("tags"),
+            tags = params.get("tags", ["gdocs"]),
             title = params.get("title"),
             description = params.get("description"),
         )
@@ -94,6 +95,23 @@ class Page:
     def __str__(self):
         return f'Page({self.id} {self.path} {self.title})'
 
+    # Make sure a string
+    def url_safe(self, value: str) -> str:
+        value = value.strip()
+        value = value.lower()
+        value = re.sub(r"[^a-zA-Z0-9-._~]", "-", value)
+        value = re.sub(r"-+", "-", value)
+        return value
+
+
+    def fullpath(self, path:str) -> str:
+        full = self.url_safe(self.path)
+
+        if path:
+            return path + '/' + full
+        else:
+            return full
+
 
     def filename(self, root = None) -> Path:
         """
@@ -101,11 +119,14 @@ class Page:
         If `root` is supplied, that file name
         will be realtive to that path
         """
-        filename = self.path + '.md'
-        if root:
-            return Path(root, filename)
-        else:
-            return Path(filename)
+        # replace chars in path
+        filename = self.fullpath(root) + '.md'
+        return Path(filename)
+
+
+    def update_path(self, root: str):
+        if root and len(root) > 0:
+            self.path = self.fullpath(root)
 
 
     def write_file(self, filename:str) -> None:

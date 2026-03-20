@@ -1,32 +1,29 @@
 # wikinator
 
-Convert a Google drive download into a markdown-based wiki.
+Convert Google docs into a markdown-based wiki.
 
 **Note**: This is a work in progress, and not all features will be supported or working properly.
 
 ## tl;dr
+[Install `uv`](https://docs.astral.sh/uv/getting-started/installation/) and then:
 ```
-uvx wikinator upload --help
-Usage: wikinator upload [OPTIONS] SOURCE WIKIROOT
-
-  Convert and upload a file hierarchy to a GraphQL wiki. Given a source
-  directrory, walk the directory tree and for each file: - if MD or image
-  file, upload at the same path relative to the wikiroot path - If DOCX,
-  convert to MD and upload at the same path... - Unknown files are skipped.
-  For example, with source=/src and wikiroot=/wiki/root, A DOCX file at
-  /src/dir/some_file.docx will be uploaded to /wiki/root/dir/some_file on the
-  wiki.
-
-Arguments:
-  SOURCE    [required]
-  WIKIROOT  defaults to root of wiki, /
+uvx wikinator --help
+Usage: wikinator [OPTIONS] COMMAND [ARGS]...
 
 Options:
-  --help  Show this message and exit.
+  --version  Display version and exit.
+  -v         Show verbose logging.
+  -vv        Show debug logging.
+  -vvv       Show full trace logging.
+  --help     Show this message and exit.
+
+Commands:
+  upload   Convert and upload a file hierarchy to a GraphQL wiki.
+  convert  Given the URL of a specific gdoc:
+  config   View or set configuration settings.
 ```
 
 Given a directory, convert supported file types into markdown-based files while maintaining names and directory structure. This can then be uploaded into various wiki systems.
-
 
 ### Supported File Types
 - DOCX files (default for GDocs) are converted to markdown
@@ -39,13 +36,22 @@ Given a directory, convert supported file types into markdown-based files while 
 - wiki.js (and other GraphQL-based wikis)
 - Obsidian
 
-The development log will be kept here until the 1.0 release.
-
 ## Usage
 ```
+uvx wikinator --help
+uvx wikinator config
+
+uvx wikinator convert https://gdoc/full/url --path=wiki/path
+uvx wikinator convert sOmE-googleDoc-Id --path=wiki/path2
+
 uvx wikinator upload target_dir
 uvx wikinator upload target_file.md new/path
 ```
+
+`convert` will take a single URL to a google doc, convert it to markdown, and
+upload that to the configured GraphQL server using the title from the document.
+An optional `path` option is provided to specify to path in the wiki to upload
+the document to: `
 
 `upload` loads a full directory into the wiki. In the above examples:
 - Upload the directoy tree at `target_dir` into the wikipath `target_dir`
@@ -55,28 +61,34 @@ Assuming the `en` locale, the final paths in the wiki will be:
 - $GRAPH_DB/en/target_dir/...
 - $GRAPH_DB/en/new/path/target_file
 
-## Install & Configure
+## Configuration
 There is nothing to install, the `wikinator` command can be run from anywhere [`uvx` is installed](https://docs.astral.sh/uv/getting-started/installation/).
 
-To upload to your wiki, you must have the URL and an authorization token.
+To upload to your wiki, you must have:
+1. the URL
+2. an authentication token
+
+Configuring the values in wikinator:
+```
+uvx wikinator config db_url https://db.example.com/graphql
+uvx wikinator config db_token <authentication-token-for-your-graphdb>
+```
+
+When accessing Google docs, `wikinator` will confirm access to the requested files with a browser-based user authentication. These details will be stored in the configuration directory (`uvx wikinator config config_dir`) in `token.json` for future use.
+
+Once this file is set up correctly, confirm with with, which should show a list of configuration settings (including the start and end characters of the API token):
+```
+uvx wikinator config
+```
+
+The `config` command will also display the location of the configuration file.
 
 ### wiki.js
+This section is specific to the getting configuration values for a wiki.js server.
 
-TODO: Details on setting up auth token for wikijs.
+You'll need the URL of the server, and the [authentication token](https://docs.requarks.io/dev/api#authentication) for you account. For wiki.js, the API tokens are manged via Administration -> API Access, and a new token can be generated with "+ New API Key".
 
-Create a file in your home directory: `~/.config/wikinator.env`
-
-In that file, add your wiki GraphQL URL and the access token:
-```
-GRAPH_DB=https://wiki.example.org/graphql
-AUTH_TOKEN=your-authorization-token
-```
-
-Once this file is set up correctly, `wikinator` is run with:
-```
-uvx wikinator upload target_dir
-```
-
+With both URL and API token, configure the `db_url` and `db_token` settings with the `wikinator config` command, as above.
 
 ## Build & Test
 1. Clone
@@ -94,6 +106,29 @@ uvx wikinator upload target_dir
     ```
 
 ## Development Log
+The development log will be kept here until the 1.0 release.
+
+### 2026-03-19
+Released v0.7, with `convert` command working:
+
+First, configure your graphql wiki:
+1. `uvx wikinator config db_url https://example.com/graphql`
+2. `uvx wikinator config db_token long-API-token-for-graphql`
+
+Then:
+
+`uvx wikinator some-googledoc-id -path target/wiki/path`
+
+This will confirm access to the supplied GoogleDoc ID, download and convert the document, than upload that document to "https://example.com/target/wiki/path/document-title".
+
+Next step is an override confirmation (if that path already exists), and a `-y` option to skip the check. -> v0.8
+
+Then, refactor doc upload to use an image dir (fullpath/images/...), and only resize images larget than 5Mb. -> v0.9
+
+### 2026-03-08
+Adding `config` and `convert` commands.
+- `config` helps manage config
+- `convert` will read, convert and upload a google doc
 
 ### 2025-08-07
 Refactored and disabled (for now) the convert, extract and teleport commands. The code remains in place, but the
@@ -117,7 +152,6 @@ Decent progress with google drive download. Still lots of problems.
 - [ ] research which converter google is using
 
 pandoc doesn't do embedding the same way (HTML-only): https://pandoc.org/MANUAL.html#option--embed-resources%5B
-
 
 ### 2025-07-06
 Getting into formatting details, and I want to decompse and stream-line the docxit converter.
@@ -150,7 +184,6 @@ Refactored __main__ to better commands. Got `-v` working.
 Original behavior is working as `wikinator convert`.
 
 Now looking at extract command.
-
 
 ### 2025-07-05
 Starting work on image preservation.
@@ -210,7 +243,6 @@ Restructured and cleaned up. Removed unneeded code and libraried.
 Created a simple docx doc for testing.
 
 Far enough that a new release feels right. v0.4!
-
 
 ### 2025-07-04
 Let's make a project! Today's goals:

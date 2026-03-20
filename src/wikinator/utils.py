@@ -1,10 +1,12 @@
-import sys
 import os
 
 import humanize
 import docx
 
+
 from wikinator.docxit import CommentBlock, build_numbering_cache, get_marker
+from wikinator.wiki import GraphDB
+from wikinator.config import AppConfig
 
 # Not directly related to processing docs, but useful in development and understanding of the DOCX structures.
 
@@ -178,12 +180,21 @@ def docx_dump(filename:str):
 
 
 
+def load_docs():
+    config = AppConfig()
 
+    url = config.get('db_url')
+    token = config.get('db_token')
+
+    db = GraphDB(url, token)
+    for doc in db.pageCache:
+        print(doc)
 
 
 def main():
-    for filename in sys.argv:
-        docx_dump(filename)
+    #for filename in sys.argv:
+    #    docx_dump(filename)
+    load_docs()
 
 
 if __name__ == "__main__":

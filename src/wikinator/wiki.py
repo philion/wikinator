@@ -1,5 +1,6 @@
 import logging
 from pathlib import Path
+import sys
 
 
 from gql import Client, gql
@@ -67,6 +68,9 @@ class GraphDB:
 
 
     def update(self, page:Page) -> Page:
+        if page.tags is None:
+            page.tags = ["gdocs"]
+
         id = self.id_for_path(page.path)
         log.debug(f"Found id={id} for {page.path}")
         if id > 0:
@@ -123,6 +127,9 @@ class GraphDB:
 
 
     def create(self, page:Page) -> Page | None:
+        if page.tags is None:
+            page.tags = ["gdocs"]
+
         query = gql(
             '''
             mutation Page (
@@ -223,6 +230,7 @@ class GraphIngester(Converter):
 
     # use the "file walk" from the converter to upload
     def convert_file(self, full_path:Path, outroot:str):
+        # FIXME: file/path naming should be abstracted somehow.
         if outroot.strip() in ["/", ""]:
             outroot = ""
             wikipath = f"{full_path.parent}/{full_path.stem}"
