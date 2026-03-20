@@ -29,20 +29,12 @@ test:
 build:
 	uv build
 
-#--bump patch --short)
-#release: version = $(shell uv version --bump patch --short)
-
 release:
 	uv version --bump patch
 	git tag -a v$(shell uv version --short) -m "Version $(shell uv version)"
-#	@echo Releasing $$version
-#	git commit -am "Releasing v$$version"
-#	@#git push
+	git commit -am "Releasing $(shell uv version)"
+	git push
 
-# prepare release with:
-# uv version [vers]
-# uv version --bump ...
-#    major minor patch stable alpha beta rc post dev
 dist:
 	rm -fr dist/
 	uv build
