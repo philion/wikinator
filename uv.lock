@@ -1003,7 +1003,7 @@ wheels = [
 
 [[package]]
 name = "wikinator"
-version = "0.8.0"
+version = "0.8.14"
 source = { editable = "." }
 dependencies = [
     { name = "confuse" },

@@ -1,15 +1,21 @@
-.PHONY: all run clean
-
 # Simple makefile to help me remember uv tasks
 # Targets are:
 # - lint     : run ruff linter
 # - fix      : ... with fixes
 # - test     : run test suite
 # - build    : build
-# - publish  : publish
+# - release  : Bump the version, update metadata, tag the release
 # - dist     : clean, build, publish
 # - clean    : remove anything built
 
+# load vars from .env
+# specifically, UV_PUBLISH_TOKEN for "make publish"
+ifneq (,$(wildcard ./.env))
+    include .env
+    export
+endif
+
+.PHONY: all run clean
 
 lint:
 	uvx ruff check
@@ -23,6 +29,20 @@ test:
 build:
 	uv build
 
+#--bump patch --short)
+#release: version = $(shell uv version --bump patch --short)
+
+release:
+	uv version --bump patch
+	git tag -a v$(shell uv version --short) -m "Version $(shell uv version)"
+#	@echo Releasing $$version
+#	git commit -am "Releasing v$$version"
+#	@#git push
+
+# prepare release with:
+# uv version [vers]
+# uv version --bump ...
+#    major minor patch stable alpha beta rc post dev
 dist:
 	rm -fr dist/
 	uv build
@@ -34,5 +54,5 @@ clean:
 	rm -fr .venv/
 	rm -f dpytest_*.dat
 	rm -fr .pytest_cache/
-	find . -type f -name ‘*.pyc’ -delete
+	find . -type f -name '*.pyc' -delete
 	find . -name __pycache__  | xargs rm -rf

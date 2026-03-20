@@ -105,8 +105,53 @@ With both URL and API token, configure the `db_url` and `db_token` settings with
     uv run pytest
     ```
 
+## Release & Publish
+To publish (to [PyPI](pypi.org), for `uvx`), a `UV_PUBLISH_TOKEN` is needed. [Create an API token](https://pypi.org/help/#apitoken) using a PyPI account, and store that in file named `.env` in the same directoy as the `Makefile`:
+```
+UV_PUBLISH_TOKEN=some-long-complicated-token-string
+```
+
+When ready to publish a release, [update the version](https://docs.astral.sh/uv/guides/package/#updating-your-version) and build the distribution:
+```
+new_version=`uv version --bump patch --short`
+git commit -am "Releasing v$new_version"
+git tag -a v$new_version -m "Version $new_version"
+git push
+make dist
+```
+
+**TODO**: Configure a GitHub Action for releases based on merges-to-main.
+
 ## Development Log
 The development log will be kept here until the 1.0 release.
+
+### 2026-03-20
+Preparing for v0.9 release.
+
+Changes:
+- [ ] Download DOCX instead of MD
+- [ ] Use docxit to extract MD
+- [ ] Pivot to image-dir (fullpath+'images')
+- [ ] Get upload doc + images dir working - `/path/filename/imagename.jpg`
+- [ ] Add image compress for anything 5M and over
+- [ ] test and release -> v0.9
+
+Image upload:
+- https://github.com/requarks/wiki/discussions/6049
+- https://github.com/requarks/wiki/issues/2413#issuecomment-689876881
+- https://docs.requarks.io/guide/assets
+
+```bash
+# Source - https://stackoverflow.com/a/31988438
+# Posted by Paul Bastide
+# Retrieved 2026-03-19, License - CC BY-SA 3.0
+
+curl -u "<EMAIL>:<PASSWORD>" -X POST -H "X-Update-Nonce: <NONCE>" -H "Content-Type: <CONTENT_TYPE>" -H "Slug: <FILENAME>" --data "@<FILE>" "https://<SERVER>/wikis/basic/api/wiki/<WIKI>/page/<WIKIPAGE>/feed?category=attachment"
+```
+
+`uv version --short` provides just the version from
+
+Refactor doc upload to use an image dir (fullpath/images/...), and only resize images larget than 5Mb. -> v0.9
 
 ### 2026-03-19
 Released v0.7, with `convert` command working:
@@ -123,7 +168,7 @@ This will confirm access to the supplied GoogleDoc ID, download and convert the 
 
 Next step is an override confirmation (if that path already exists), and a `-y` option to skip the check. -> v0.8
 
-Then, refactor doc upload to use an image dir (fullpath/images/...), and only resize images larget than 5Mb. -> v0.9
+Done and released. 0.8 in the wild.
 
 ### 2026-03-08
 Adding `config` and `convert` commands.
