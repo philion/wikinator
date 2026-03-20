@@ -118,8 +118,9 @@ def convert(
     doc_url: Annotated[str, typer.Argument(help="URL of the google-doc")],
     db_url: Annotated[str, typer.Option("--db", help="URL of the GraphQL database.")] = app_config.get('db_url'),
     path: Annotated[str, typer.Option("--path", help="Path to upload to. Defaults to '/' (root)")] = None,
-    name: Annotated[str, typer.Option("--name", help="Name of the uploaded file. Defaults to '<document-name>.md'")] = None,
-    token: Annotated[str, typer.Option("--token", help="Secure token for GraphQL database.")] = app_config.get('db_token'),
+    name: Annotated[str, typer.Option("--name", help="Name of the uploaded file. Defaults to the document title, scrubbed for URL")] = None,
+    token: Annotated[str, typer.Option("--token", help="Secure token for GraphQL database.")] = None, #app_config.get('db_token'),
+    skip_confim: Annotated[bool, typer.Option("-y", help="Skip confirmation check when path already exists in wiki")] = False,
 ) -> None:
     """
     Given the URL of a google doc, and options upload path: download the document, convert it to markdown, and upload
@@ -131,10 +132,15 @@ def convert(
 
     will create a new wiki entry '/edu/tutorials/docker_tutorials.md' from https://example.com/docker_tutorials.docx
 
-    GraphQL credentials can be set on the command line or configured with `wikinator config`. Loading a Googledoc will
+    GraphQL credentials can be set on the command line or configured with the config command. Loading a Googledoc will
     invoke an authorization flow in the browser to confirm access to document. See README.md#Configuration for details.
     """
-    log.debug(f"downloading {doc_url}")
+
+    # NOTE: Using default in the
+    if token is None:
+        token = app_config.get('db_token')
+
+    log.info(f"Downloading {doc_url}")
     page = GoogleDrive(*app_config.config_dir()).get_doc_url(doc_url)
 
     if name is not None:
@@ -143,9 +149,22 @@ def convert(
     if path is not None:
         page.update_path(path)
 
-    log.debug(f"uploading to {db_url}/{page.path}")
+
     db = GraphDB(db_url, token)
-    db.update(page)
+
+    page_id = db.id_for_path(page.path)
+    if page_id:
+        # if path already exists, prompt user for continue:
+        overwrite = skip_confim or typer.confirm(f"The page {page.path} already exists. Do you want to overwrite?")
+        if overwrite:
+            print(f"Updating {db_url}/{page.path}")
+            db.update(page)
+        else:
+            #print(f"{page.path} already exists. Aborting.")
+            raise typer.Abort()
+    else:
+        print(f"Creating {db_url}/{page.path}")
+        db.create(page)
 
     raise typer.Exit()
 
