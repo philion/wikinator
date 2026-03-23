@@ -125,14 +125,18 @@ make dist
 ## Development Log
 The development log will be kept here until the 1.0 release.
 
+### 2026-03-21
+And 22, the whole vernal eqinox weekend: Getting image upload working.
+
 ### 2026-03-20
 Preparing for v0.9 release.
 
 Changes:
-- [ ] Download DOCX instead of MD
-- [ ] Use docxit to extract MD
-- [ ] Pivot to image-dir (fullpath+'images')
-- [ ] Get upload doc + images dir working - `/path/filename/imagename.jpg`
+- [x] Download DOCX instead of MD
+- [x] Use docxit to extract MD
+- [-] Pivot to image-dir (fullpath+'images')
+    - [x] Update image names: `/full-path-file_name-image.jpg`
+- [x] Get upload doc + images dir working - `/path/filename/imagename.jpg`
 - [ ] Add image compress for anything 5M and over
 - [ ] test and release -> v0.9
 

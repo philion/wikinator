@@ -29,11 +29,11 @@ test:
 build:
 	uv build
 
-release:
-	uv version --bump patch
-	git tag -a v$(shell uv version --short) -m "Version $(shell uv version)"
-	git commit -am "Releasing $(shell uv version)"
-	git push
+# release:
+# 	uv version --bump patch
+# 	git tag -a v$(shell uv version --short) -m "Version $(shell uv version)"
+# 	git commit -am "Releasing $(shell uv version)"
+# 	git push
 
 dist:
 	rm -fr dist/

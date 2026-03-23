@@ -31,6 +31,7 @@
 # under the provided MIT license.
 
 import re
+import io
 
 import humanize
 import docx
@@ -43,7 +44,7 @@ from typing import Self
 from io import BytesIO
 from PIL import Image
 
-from .page import Page
+from .page import Page, PageImage
 from .converter import Converter
 
 
@@ -121,8 +122,8 @@ class CommentBlock:
             return None
 
 
-### new convert file -> memory
-def convert(docx_file:Path) -> Page:
+# convert load DOCX file -> in-memory Page
+def convert_file(docx_file:Path) -> Page:
     doc = docx.Document(docx_file)
     page = Page(
         id = "",
@@ -136,14 +137,32 @@ def convert(docx_file:Path) -> Page:
         isPublished = False,
         isPrivate = True,
     )
+    return convert(doc, page)
+
+
+# convert in-memory DOCX page -> in-memory Page
+def convert_page(docx_page:Page) -> Page:
+    doc = docx.Document(io.BytesIO(docx_page.content))
+    return convert(doc, docx_page)
+
+
+# convert in-memory doc -> in-memory
+def convert(doc:docx.Document, page: Page) -> Page:
+    # copy the images from the document
+    # to the "page", so it can be managed
+    # in different ways later
+    process_images(doc, page)
 
     numbering = build_numbering_cache(doc)
+
+    # handle doc metadata
+    page.tags = doc.core_properties.keywords, # docx file metadata
 
     # Future NOTE: Page contains paragraphs, paragraphs contain styledtext (run)
     paragraphs = list(doc.paragraphs)
     tables = list(doc.tables)
 
-    markdown = []
+    markdown = [] # array of markdown paragraphs/sections
 
     for block in doc.element.body:
         if block.tag.endswith('p'):  # Handle paragraphs
@@ -197,18 +216,12 @@ def convert(docx_file:Path) -> Page:
             #log.debug(f"!!! section ptr: {block}")
             pass
         else:
-            log.warning("Unknown block:", docx_file, block.tag)
+            log.warning("Unknown block:", page.title, block.tag)
 
     # append comments as footnotes
     for block in page.comments:
         #log.warning(f"BLOCK: {block.anchor()} - {block.comments}")
         markdown.append(block.comments_from_doc(doc))
-
-    # append images to the array of markdown paragraphs
-    # Check image size...
-    # Either add the images to the existing markdown array OR write individual files, based in image sizes.
-    # Need different markers in the text!!!
-    markdown.extend(embedded_images(doc))
 
     page.content = "\n\n".join(markdown)
 
@@ -387,6 +400,23 @@ def extract_comment_id(xml_string) -> int:
         return int(m[1])
     else:
         return None
+
+
+# for in-memory image set:
+# - name = doc-path + image_part.partname
+# - content = image_part.blob
+# - rID - the resource ID from
+def get_image(image_part) -> PageImage:
+    filename = image_part.partname.replace("\\", "/")
+    if filename.startswith("/word/media/"):
+        filename = filename[12:]
+    return PageImage(filename, image_part.blob)
+
+
+def process_images(doc:docx.Document, page:Page):
+    for rel in doc.part.rels.values():
+        if "image" in rel.reltype:
+            page.add_image(rel.rId, get_image(rel.target_part))
 
 
 def save_image(image_part, output_folder):
@@ -588,8 +618,11 @@ class StyledText:
             elif isinstance(s, docx.text.hyperlink.Hyperlink):
                 styled.append(f"[{s.text}]({s.address})")
             elif isinstance(s, docx.drawing.Drawing):
+                # This is where is image link is embedded in the markdown.
+                # The link is generated from the rId.
+                # Assumes 'process_images' has been run and page.images is populated
                 rId = extract_r_embed(s._element.xml)
-                styled.append(f"![][image{rId[3:]}]") ### FIXME: Depends on whether writing images to disk or in the file.
+                styled.append(page.get_image_link(rId))
             elif isinstance(s, docx.text.pagebreak.RenderedPageBreak):
                 styled.append("\n\n-----\n\n")
             else:
@@ -678,7 +711,7 @@ class DocxitConverter(Converter):
         """
         match full_path.suffix.lower():
             case ".docx":
-                return convert(full_path)
+                return convert_file(full_path)
             case ".md":
                 return Page.load_file(full_path)
             case _:

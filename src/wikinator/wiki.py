@@ -1,11 +1,16 @@
+import io
 import logging
+import os
 from pathlib import Path
-import sys
 
-
-from gql import Client, gql
+import aiohttp
+from gql import Client, gql, FileVar
 from gql.transport.aiohttp import AIOHTTPTransport
 from gql.transport.exceptions import TransportQueryError
+import requests
+
+
+from wikinator.config import AppConfig
 
 from .page import Page
 from .converter import Converter
@@ -15,10 +20,35 @@ from .docxit import DocxitConverter
 log = logging.getLogger(__name__)
 
 
+MIMETYPES = {
+    '.png': 'image/png',
+    '.docx': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+    '.md': 'text/markdown',
+}
+def mimetype_from_path(path:str) -> str:
+    _, ext = os.path.splitext(path)
+    ext = ext.lower()
+    if ext in MIMETYPES:
+        return MIMETYPES[ext]
+    else:
+        log.warning(f"Unrecognized extention: {ext}, from {path}")
+        return None
+
+
 class GraphDB:
     def __init__(self, url:str, token:str):
+        self.url = url
+        self.token = token # FIXME: REMOVE - this is only used for testing file upload using other tools
         self.client = self._init_client(url, token)
         self.pageCache = self.all_pages()
+
+
+    @classmethod
+    def from_config(cls, config:AppConfig):
+        url = config.get('db_url')
+        token = config.get('db_token')
+        return cls(url, token)
+
 
     def _init_client(self, url:str, token:str) -> Client:
         """
@@ -26,7 +56,7 @@ class GraphDB:
         - GRAPH_DB : The full URL for requests to the graph DB
         - AUTH_TOKEN : Security token to authorize session
         """
-        transport = AIOHTTPTransport(url=url, headers={'Authorization': f'Bearer {token}'}, ssl=True)
+        transport = AIOHTTPTransport(url=url + '/graphql', headers={'Authorization': f'Bearer {token}'}, ssl=True)
         return Client(transport=transport)
 
 
@@ -117,6 +147,11 @@ class GraphDB:
                 }
                 ''')
             try:
+                # images:
+                if page.images:
+                    for rId in page.images:
+                        self.upload_image(page, rId)
+
                 return self.client.execute(query, variable_values=page.vars())
             except TransportQueryError as e:
                 log.error(f"update failed on {page.path}: {e}")
@@ -171,9 +206,17 @@ class GraphDB:
             '''
         )
         try:
+            # images:
+            log.warning("Uploading images")
+            if page.images:
+                for rId in page.images:
+                    log.warning(f"Uploading image {rId}")
+                    self.upload_image(page, rId)
+
+            log.warning(f"creating: {query}")
             response = self.client.execute(query, variable_values=page.vars())
 
-            log.warning(response)
+            log.warning(f"CREATE: {response}")
 
             result = response["pages"]["create"]["responseResult"]
             if not result["succeeded"]:
@@ -181,8 +224,10 @@ class GraphDB:
                 return None
 
             log.info(f"#### {response["pages"]["create"]["page"]}")
+            result_page = Page.load(response["pages"]["create"]["page"])
 
-            return Page.load(response["pages"]["create"]["page"])
+
+            return result_page
         except Exception as ex:
             log.error(f"Error creating {page.path}: {ex}")
             return None
@@ -194,6 +239,89 @@ class GraphDB:
         #   "slug":"PageDuplicateCreate",
         #   "message":"Cannot create this page because an entry already exists at the same path."},
         # "page":null}}}}
+
+
+    # # return the image path
+    # def create_image(self, page:Page, rId:str) -> str:
+    #     image = page.get_image(rId)
+    #     path = page.get_image_path(rId) # this scopes the path with the page name and path
+    #     # FIXME upload image.content
+
+    #     query = gql('''
+    #         mutation($file: Upload!) {
+    #             singleUpload(file: $file) {
+    #                 id
+    #             }
+    #         }
+    #     ''')
+
+    #     query.variable_values = {
+    #         "file": FileVar(
+    #             io.BytesIO(image.content),
+    #             filename=path,
+    #             content_type=mimetype_from_path(path),
+    #         ),
+    #     }
+
+    #     response = self.client.execute(query, upload_files=True)
+    #     log.debug(f"create_image: {path} --> {response}")
+    #     # FIXME - process response
+
+    #     return path
+
+
+    # async def upload_asset(self, file_path: str, file_name: str, asset_folder_id: int):
+
+    #     headers = {
+    #         'Authorization': f"Bearer {self.token}",
+    #     }
+    #     async with aiohttp.ClientSession() as session:
+
+    #         data = aiohttp.FormData(quote_fields=False)
+    #         data.add_field('mediaUpload', f'{{"folderId":{asset_folder_id}}}')
+    #         data.add_field('mediaUpload', open(file_path, 'rb'), filename=file_name,
+    #                     content_type='image/jpeg')
+
+    #         try:
+    #             async with session.post(
+    #                     url=self.url + "/u",
+    #                     data=data,
+    #                     headers=headers
+    #             ) as resp:
+    #                 log.info(f"status: {resp.status}")
+    #                 result = await resp.text()
+    #                 log.info(f"upload: {result}")
+    #                 return result
+    #         except aiohttp.ClientConnectorError and aiohttp.ServerTimeoutError:
+    #             logging.exception("Exception in upload_asset")
+    #             return {}
+
+
+    def upload_image(self, page:Page, rId:str) -> str:
+        image = page.get_image(rId)
+        path = page.get_image_path(rId) # this scopes the path with the page name and path
+        mime = mimetype_from_path(path)
+        url = self.url + "/u"
+
+        try:
+            with io.BytesIO(image.content) as image_data:
+                headers = {
+                    'Authorization': f'Bearer {self.token}'
+                }
+
+                files = (
+                    ('mediaUpload', (None, '{"folderId":0}')),  # Using root asset folder
+                    ('mediaUpload', (path, image_data, mime))
+                )
+
+                log.debug(f"Sending upload request: {url} POST {image.name}/{mime} -> {path}")
+                result = requests.post(url, headers=headers, files=files)
+                if result.ok:
+                    log.info(f"Upload OK: status={result.status_code} path={path}")
+                else:
+                    log.warning(f"Image upload failed: {page.title} {image.name}")
+        except Exception:
+            log.exception(f"Error uploading ${path}")
 
 
     def all_pages(self):

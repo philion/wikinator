@@ -7,12 +7,21 @@ import re
 log = logging.getLogger(__name__)
 
 
+class PageImage:
+    name: str
+    content: bytes
+
+    def __init__(self, name, content):
+        self.name = name
+        self.content = content
+
+
 class Page:
     """
     Specific class for page, to help with validation, as graphql is strict about params
     """
     id: int
-    content: str
+    content: bytes
     editor: str
     isPublished: bool
     isPrivate: bool
@@ -22,8 +31,8 @@ class Page:
     title: str
     description: str
 
-
-    def __init__(self, id: int, content: str, editor: str, isPublished: bool, isPrivate: bool,
+    # When Page is constructed, it needs to have the wiki target path
+    def __init__(self, id: int, content: bytes, editor: str, isPublished: bool, isPrivate: bool,
                 locale: str, path: str, tags: list[str], title: str, description: str):
         self.id = id
         self.content = content
@@ -36,6 +45,8 @@ class Page:
         self.title = title
         self.description = description
         self.comments = []
+        self.images = {}
+        self.isImageEmbedded = False
 
 
     @classmethod
@@ -96,21 +107,22 @@ class Page:
         return f'Page({self.id} {self.path} {self.title})'
 
     # Make sure a string
-    def url_safe(self, value: str) -> str:
+    @staticmethod
+    def url_safe(value: str) -> str:
         value = value.strip()
         value = value.lower()
-        value = re.sub(r"[^a-zA-Z0-9-._~]", "-", value)
+        value = re.sub(r'[^a-zA-Z0-9-._~/]', '-', value)
         value = re.sub(r"-+", "-", value)
         return value
 
 
     def fullpath(self, path:str) -> str:
-        full = self.url_safe(self.path)
-
         if path:
-            return path + '/' + full
+            fullpath = str(Path(path, self.path))
         else:
-            return full
+            fullpath = self.path
+
+        return self.url_safe(fullpath)
 
 
     def filename(self, root = None) -> Path:
@@ -161,4 +173,51 @@ class Page:
     def vars(self):
         temp = vars(self)
         del temp["comments"]
+        del temp["images"]
         return temp
+
+
+    def add_image(self, rId:str, image:PageImage):
+        if rId and image:
+            self.images[rId] = image
+
+
+    def get_image(self, rId:str) -> PageImage:
+        return self.images[rId]
+
+
+    def get_image_path(self, rId:str) -> str:
+        # ASSUMPTION: At some point, document 'path' must be set to upload-path/filename (no ext)
+        # image location: /upload/path/file_name/images/image_name
+        # That's the ideal. For now, managing folders in wiki.js is a mess, and it's easier
+        # to futz with the path as a single long name:
+        #    upload-path-file_name-image_name.jpg
+        image = self.get_image(rId)
+        if image:
+            #path = str(Path(self.path, image.name))
+            path = self.path.replace('/', '-') + '-' + image.name
+            log.warning(f"---- {path}")
+            path = path.strip('-')
+            return '/' + path
+        else:
+            # no rId
+            return None
+
+
+    def get_image_link(self, rId:str) -> str:
+        """Generate a link to an image, depending on the isImageEmbedded flag"""
+        # generate internal image name, based on resource ID
+        if self.isImageEmbedded:
+            return f"![][image{rId[3:]}]"
+        else:
+            # use image and document metadata to generate a value link with URL
+            # ASSUMPTION: At some point, document 'path' must be set to upload-path/filename (no ext)
+            # image location: /upload/path/file_name/images/image_name
+            image = self.get_image(rId)
+            alt_text = ""
+            path = self.get_image_path(rId)
+            if image:
+                return f"![{alt_text}]({path})"
+            else:
+                # no rId
+                return None

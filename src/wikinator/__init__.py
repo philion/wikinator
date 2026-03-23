@@ -5,7 +5,8 @@ import typer
 from typing_extensions import Annotated
 
 from wikinator.config import AppConfig, __app_name__
-from wikinator.gdrive import GoogleDrive
+from wikinator.docxit import DocxitConverter, convert_page
+from wikinator.gdrive import MIMETYPE_DOCX, GoogleDrive
 from wikinator.wiki import GraphDB as GraphDB
 from wikinator.wiki import GraphIngester
 
@@ -141,14 +142,18 @@ def convert(
         token = app_config.get('db_token')
 
     log.info(f"Downloading {doc_url}")
-    page = GoogleDrive(*app_config.config_dir()).get_doc_url(doc_url)
+    g_page = GoogleDrive(*app_config.config_dir()).get_doc_url(doc_url, MIMETYPE_DOCX)
 
+    # apply name and path params to page, before final conversion
+    # needed so image links are generated correctly
     if name is not None:
-        page.path = name
+        g_page.path = name
 
     if path is not None:
-        page.update_path(path)
+        g_page.update_path(path)
 
+    log.info(f"Converting {g_page.title}")
+    page = convert_page(g_page)
 
     db = GraphDB(db_url, token)
 

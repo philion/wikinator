@@ -8,6 +8,8 @@ from google_auth_oauthlib.flow import InstalledAppFlow
 from googleapiclient.discovery import build
 from googleapiclient.errors import HttpError
 
+from wikinator.config import AppConfig
+
 from .page import Page
 
 log = logging.getLogger(__name__)
@@ -22,15 +24,24 @@ SCOPES = ["https://www.googleapis.com/auth/drive.readonly", "https://www.googlea
 #     gdoc =     "application/vnd.google-apps.document"
 #     markdown = "text/markdown"
 
+
 MIMETYPE_MARKDOWN = "text/markdown"
+MIMETYPE_DOCX = "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
 MIMETYPE_GDOC = "application/vnd.google-apps.document"
 MIMETYPE_FOLDER = "application/vnd.google-apps.folder"
+
 
 class GoogleDrive:
     def __init__(self, config_dir, gcreds):
         self.token_file = os.path.join(config_dir, "token.json")
         self.creds = gcreds
         self.service = self._build_service()
+
+
+    @classmethod
+    def from_config(cls, config:AppConfig):
+        return cls(*config.config_dir())
+
 
     def _validate_token(self):
         creds = None
@@ -91,20 +102,24 @@ class GoogleDrive:
         # should end with a list ["top", "middle", "end"] for "/top/middle/end"
 
 
-    def get_doc_id(self, doc_id:str) -> Page:
+    def get_doc(self, doc_id:str, mimeType="text/markdown") -> Page:
         """Download a document given a google ID"""
         # download
         metadata = self.service.files().get(fileId=doc_id, fields='id,name,starred').execute()
-        content = self.service.files().export(fileId=doc_id, mimeType="text/markdown").execute()
+        content = self.service.files().export(fileId=doc_id, mimeType=mimeType).execute()
+        path = Page.url_safe(metadata['name'])
+        log.debug(f"#### CONTENT: name={path}, size={len(content)}")
         tags = None
         if metadata['starred']:
-            tags = "starred"
+            tags = ["starred", "gdocs"]
+        else:
+            tags = ["gdocs"]
 
         return Page(
             id = doc_id,
             title = metadata['name'],
-            path = metadata['name'],
-            content = content.decode("utf-8"),
+            path = path,
+            content = content,
             editor = "markdown",
             locale = "en",
             tags = tags,
@@ -114,7 +129,7 @@ class GoogleDrive:
         )
 
 
-    def get_doc_url(self, doc_url:str) -> Page:
+    def get_doc_url(self, doc_url:str, mimeType="text/markdown") -> Page:
         """Download a document given a google doc url"""
         # Set doc ID, as found at `https://docs.google.com/document/d/YOUR_DOC_ID/edit`
         pattern = re.compile(r'https://docs.google.com/document/d/([\w_]+)/edit')
@@ -122,10 +137,10 @@ class GoogleDrive:
         if result:
             doc_id = result.group(1)
             log.debug(f"Found doc id: {doc_id}")
-            return self.get_doc_id(doc_id)
+            return self.get_doc(doc_id, mimeType)
         else:
             # just assume it's a doc id
-            return self.get_doc_id(doc_url)
+            return self.get_doc(doc_url, mimeType)
 
 
     def get_page(self, item) -> Page:
