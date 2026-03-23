@@ -125,6 +125,31 @@ make dist
 ## Development Log
 The development log will be kept here until the 1.0 release.
 
+### 2026-03-23
+Preparing v0.9.0 release.
+
+With image upload, adding image compression:
+- if an image is over 5M
+- "optimize it" using 60% quality.
+
+TODO for a v1.0 release:
+- [ ] Add config settings and params for image resize (max size, quality)
+- [ ] Make "embedded images" a configurable flag
+- [ ] Refactor other commands to use new image system
+- [ ] A few more simple tests
+    - [ ] Test for doc with large images
+- [ ] Cleanup and test commands:
+    - [ ] upload : files to wiki
+    - [ ] download : gdocs/wiki to file
+    - [ ] convert : files to markdown files
+    - [ ] ??? : single file, gdocs -> wiki (currently `convert`)
+
+Post 1.0 possibilities:
+- download search/spider: follow links, search parents, etc.
+    - understand googledocs hierarchy/organization
+- download HTML -> markdown:
+    - flexible conversion systems mime-type => markdown
+
 ### 2026-03-21
 And 22, the whole vernal eqinox weekend: Getting image upload working.
 

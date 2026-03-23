@@ -1,10 +1,8 @@
 import io
 import logging
-import os
 from pathlib import Path
 
-import aiohttp
-from gql import Client, gql, FileVar
+from gql import Client, gql
 from gql.transport.aiohttp import AIOHTTPTransport
 from gql.transport.exceptions import TransportQueryError
 import requests
@@ -18,21 +16,6 @@ from .docxit import DocxitConverter
 
 
 log = logging.getLogger(__name__)
-
-
-MIMETYPES = {
-    '.png': 'image/png',
-    '.docx': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-    '.md': 'text/markdown',
-}
-def mimetype_from_path(path:str) -> str:
-    _, ext = os.path.splitext(path)
-    ext = ext.lower()
-    if ext in MIMETYPES:
-        return MIMETYPES[ext]
-    else:
-        log.warning(f"Unrecognized extention: {ext}, from {path}")
-        return None
 
 
 class GraphDB:
@@ -300,7 +283,6 @@ class GraphDB:
     def upload_image(self, page:Page, rId:str) -> str:
         image = page.get_image(rId)
         path = page.get_image_path(rId) # this scopes the path with the page name and path
-        mime = mimetype_from_path(path)
         url = self.url + "/u"
 
         try:
@@ -311,10 +293,10 @@ class GraphDB:
 
                 files = (
                     ('mediaUpload', (None, '{"folderId":0}')),  # Using root asset folder
-                    ('mediaUpload', (path, image_data, mime))
+                    ('mediaUpload', (path, image_data, image.mimetype))
                 )
 
-                log.debug(f"Sending upload request: {url} POST {image.name}/{mime} -> {path}")
+                log.debug(f"Sending upload request: {url} POST {image.name}/{image.mimetype} -> {path}")
                 result = requests.post(url, headers=headers, files=files)
                 if result.ok:
                     log.info(f"Upload OK: status={result.status_code} path={path}")

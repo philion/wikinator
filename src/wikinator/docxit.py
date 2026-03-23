@@ -354,6 +354,29 @@ def compress_image(target, scale_factor:float) -> str:
     return encoded
 
 
+# content = rel.target_part.blob
+# content_type = rel.target_part.content_type
+def compress(content:bytes, content_type:str, quality:int=85) -> bytes:
+    image_data = BytesIO(content)
+    image = Image.open(image_data)
+
+    image_format = content_type.lower()
+    if image_format.startswith("image/"):
+        image_format = image_format[6:]
+
+    compressed = BytesIO()
+    image.save(compressed, format=image_format, quality=quality, optimize=True)
+    compressed = compressed.getbuffer()
+
+    # don't know why, but it's often the case
+    if len(compressed) > len(content):
+        compressed = content
+    else:
+        log.info(f"Compressed image by {100-(len(compressed)/len(content))*100:.2f}%")
+
+    return compressed
+
+
 def extract_r_embed(xml_string):
     """
     Extract the value of r:embed from the given XML string.
@@ -416,7 +439,16 @@ def get_image(image_part) -> PageImage:
 def process_images(doc:docx.Document, page:Page):
     for rel in doc.part.rels.values():
         if "image" in rel.reltype:
-            page.add_image(rel.rId, get_image(rel.target_part))
+            image = get_image(rel.target_part)
+
+            # check image size
+            # TODO: max size and "quality" (60, here) should be configurable
+            # the problem is referencing the context for config: how is it referenced?
+            if len(image.content) > MAX_UPLOAD_SIZE:
+                compressed_content = compress(image.content, image.mimetype, 60)
+                image.content = compressed_content
+
+            page.add_image(rel.rId, image)
 
 
 def save_image(image_part, output_folder):

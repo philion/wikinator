@@ -13,7 +13,7 @@ def test_basic_formatting():
     # load file
     test_file = Path("tests/resources/test3.docx")
 
-    page = docxit.convert(test_file)
+    page = docxit.convert_file(test_file)
 
     # validate
     assert page is not None
@@ -22,8 +22,8 @@ def test_basic_formatting():
     assert page.title == test_file.stem
 
     # REMOVE: write the file to see what's in content, to write tests about what's expected
-    with open(page.title + '.md', "w") as md_file:
-        md_file.write(page.content)
+    #with open(page.title + '.md', "w") as md_file:
+    #    md_file.write(page.content)
 
 
 def test_numbering_cache():
@@ -48,7 +48,7 @@ def test_bullets():
     # load file
     test_file = Path("tests/resources/bullet-test.docx")
 
-    page = docxit.convert(test_file)
+    page = docxit.convert_file(test_file)
 
     # validate
     assert page is not None

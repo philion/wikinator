@@ -2,9 +2,31 @@ import json
 from pathlib import Path
 import logging
 import re
+import os
 
 
 log = logging.getLogger(__name__)
+
+MIMETYPES = {
+    '.docx': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+    '.md':   'text/markdown',
+    'apng':  'image/apng', # Animated Portable Network Graphics (APNG)
+    'avif':  'image/avif', # AV1 Image File Format (AVIF)
+    'gif':   'image/gif',  # Graphics Interchange Format (GIF)
+    'jpeg':  'image/jpeg', # Joint Photographic Expert Group image (JPEG)
+    'jpg':   'image/jpeg', # Joint Photographic Expert Group image (JPEG)
+    'png':   'image/png',  # Portable Network Graphics (PNG)
+    'svg':   'image/svg+xml', # Scalable Vector Graphics (SVG)
+    'webp':  'image/webp', # Web Picture format (WEBP)
+}
+def mimetype_from_name(name:str) -> str:
+    _, ext = os.path.splitext(name)
+    ext = ext.lower()
+    if ext in MIMETYPES:
+        return MIMETYPES[ext]
+    else:
+        log.warning(f"Unrecognized extention: {ext}, from {name}")
+        return None
 
 
 class PageImage:
@@ -14,6 +36,10 @@ class PageImage:
     def __init__(self, name, content):
         self.name = name
         self.content = content
+
+    @property
+    def mimetype(self):
+        return mimetype_from_name(self.name)
 
 
 class Page:
