@@ -10,14 +10,14 @@ log = logging.getLogger(__name__)
 MIMETYPES = {
     '.docx': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
     '.md':   'text/markdown',
-    'apng':  'image/apng', # Animated Portable Network Graphics (APNG)
-    'avif':  'image/avif', # AV1 Image File Format (AVIF)
-    'gif':   'image/gif',  # Graphics Interchange Format (GIF)
-    'jpeg':  'image/jpeg', # Joint Photographic Expert Group image (JPEG)
-    'jpg':   'image/jpeg', # Joint Photographic Expert Group image (JPEG)
-    'png':   'image/png',  # Portable Network Graphics (PNG)
-    'svg':   'image/svg+xml', # Scalable Vector Graphics (SVG)
-    'webp':  'image/webp', # Web Picture format (WEBP)
+    '.apng':  'image/apng', # Animated Portable Network Graphics (APNG)
+    '.avif':  'image/avif', # AV1 Image File Format (AVIF)
+    '.gif':   'image/gif',  # Graphics Interchange Format (GIF)
+    '.jpeg':  'image/jpeg', # Joint Photographic Expert Group image (JPEG)
+    '.jpg':   'image/jpeg', # Joint Photographic Expert Group image (JPEG)
+    '.png':   'image/png',  # Portable Network Graphics (PNG)
+    '.svg':   'image/svg+xml', # Scalable Vector Graphics (SVG)
+    '.webp':  'image/webp', # Web Picture format (WEBP)
 }
 def mimetype_from_name(name:str) -> str:
     _, ext = os.path.splitext(name)
@@ -78,18 +78,17 @@ class Page:
     @classmethod
     def load(cls, params: dict[str,any]):
         return cls(
-            id = params.get("id"),
+            id = params.get("id", 0),
             content = params.get("content"),
-            editor  = params.get("editor"),
-            isPublished = params.get("isPublished"),
-            isPrivate = params.get("isPrivate"),
-            locale = params.get("locale"),
+            editor  = params.get("editor", "markdown"),
+            isPublished = params.get("isPublished", False),
+            isPrivate = params.get("isPrivate", False),
+            locale = params.get("locale", "en"),
             path = params.get("path"),
             tags = params.get("tags", ["gdocs"]),
             title = params.get("title"),
             description = params.get("description"),
         )
-
 
     @classmethod
     def load_json(cls, json_str:str):
