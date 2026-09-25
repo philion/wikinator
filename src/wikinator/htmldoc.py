@@ -261,7 +261,7 @@ def main():
     #doc = get_document(url)
     doc = get_page(url)
     print(doc.title, doc.path)
-    #print(doc.content)
+    print(doc.content)
 
 
 if __name__ == "__main__":

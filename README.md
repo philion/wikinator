@@ -125,6 +125,18 @@ make dist
 ## Development Log
 The development log will be kept here until the 1.0 release.
 
+### 2026-09-24
+Preparing v0.10.0 release.
+
+Google gdrive api continues to give problems, so expanding the capabilities of local files (assuming a bulk download)
+
+When preparing an upload, handle:
+- [ ] a single file (not a dir)
+- [ ] a zip file: decompress and upload (known files)
+- [ ] add "md" and "txt" files for upload
+
+
+
 ### 2026-03-23
 Preparing v0.9.0 release.
 

@@ -105,6 +105,7 @@ class GoogleDrive:
     def get_doc(self, doc_id:str, mimeType="text/markdown") -> Page:
         """Download a document given a google ID"""
         # download
+        log.warning(f">>> file_id={doc_id}")
         metadata = self.service.files().get(fileId=doc_id, fields='id,name,starred').execute()
         content = self.service.files().export(fileId=doc_id, mimeType=mimeType).execute()
         path = Page.url_safe(metadata['name'])
@@ -136,10 +137,12 @@ class GoogleDrive:
         result = re.search(pattern, doc_url)
         if result:
             doc_id = result.group(1)
-            log.debug(f"Found doc id: {doc_id}")
+            log.warning(f"Found doc id: {doc_id}")
             return self.get_doc(doc_id, mimeType)
         else:
             # just assume it's a doc id
+            log.warning(f"Got doc id: {doc_url}")
+
             return self.get_doc(doc_url, mimeType)
 
 
@@ -356,6 +359,7 @@ def securityUpdateLink(updateUrl:str, docId:str) -> dict:
     return json.loads(value)
 
 
+
 ### METADATA dump
 
 # 'kind': 'drive#file',
@@ -372,17 +376,6 @@ def securityUpdateLink(updateUrl:str, docId:str) -> dict:
 # 'hasThumbnail': True,
 # 'thumbnailLink': 'https://lh3.googleusercontent.com/drive-storage/AJQWtBOb0dds8ifV6fyJ7nwX4qdj1FLsAphJOWoOUAfnxEjwoNbKouxBkNCKQhyrnT8JvrPwwFrE2T1Fgl_idpLfSNhq7BxtJLdvZ6Liba0RtJoRsy9KT8LFxoe0VvQBGEvt=s220',
 # 'thumbnailVersion': '117',
-# 'viewedByMe': True,
-# 'viewedByMeTime': '2026-03-02T02:02:15.919Z',
-# *** 'createdTime': '2025-06-02T21:53:44.586Z',
-# *** 'modifiedTime': '2026-02-24T05:14:21.946Z',
-# 'modifiedByMeTime': '2026-02-24T05:14:21.946Z',
-# 'modifiedByMe': True,
-# 'sharedWithMeTime': '2025-07-02T18:30:25.132Z',
-# 'owners': [{'kind': 'drive#user', 'displayName': 'Local Connectivity Lab', 'photoLink': 'https://lh3.googleusercontent.com/a/ACg8ocKvNxlAP01i1FkFJQOl2pJYAgOoDnst8BgCHwZeKMxD7oAUZg=s64', 'me': False, 'permissionId': '06117874555527613620', 'emailAddress': 'lcl@seattlecommunitynetwork.org'}],
-# 'lastModifyingUser': {'kind': 'drive#user', 'displayName': 'Paul Philion', 'photoLink': 'https://lh3.googleusercontent.com/a/ACg8ocLYM6c70Ol65XTA5PdXSfSs34okgu-lGIolx1YHNpLPbn8pHQ=s64', 'me': True, 'permissionId': '16770134505765193969', 'emailAddress': 'philion@seattlecommunitynetwork.org'},
-# *** 'shared': True,
-# 'ownedByMe': False,
 remoteDocId = 'gqR6Iw4ort36XFECasNG6GSZUIBntmUi0rASy59N8_I='
 # 'downloadRestrictions': {'itemDownloadRestriction': {'restrictedForReaders': False, 'restrictedForWriters': False},
 # 'effectiveDownloadRestrictionWithContext': {'restrictedForReaders': False, 'restrictedForWriters': False}},
@@ -415,3 +408,33 @@ photoLinkIcon = 'Z0FBQUFBQnBwbW9BaHJvUTluTDFINjI5a0Itc3dIMDFudERfSlF0emF5MDUxOG5
 # 'linkShareMetadata': {'securityUpdateEligible': False, 'securityUpdateEnabled': True},
 # 'inheritedPermissionsDisabled': False}
 config_link = securityUpdateLink(photoLinkIcon, remoteDocId)
+# 'viewedByMe': True,
+# 'viewedByMeTime': '2026-03-02T02:02:15.919Z',
+# *** 'createdTime': '2025-06-02T21:53:44.586Z',
+# *** 'modifiedTime': '2026-02-24T05:14:21.946Z',
+# 'modifiedByMeTime': '2026-02-24T05:14:21.946Z',
+# 'modifiedByMe': True,
+# 'sharedWithMeTime': '2025-07-02T18:30:25.132Z',
+# 'owners': [{'kind': 'drive#user', 'displayName': 'Local Connectivity Lab', 'photoLink': 'https://lh3.googleusercontent.com/a/ACg8ocKvNxlAP01i1FkFJQOl2pJYAgOoDnst8BgCHwZeKMxD7oAUZg=s64', 'me': False, 'permissionId': '06117874555527613620', 'emailAddress': 'lcl@seattlecommunitynetwork.org'}],
+# 'lastModifyingUser': {'kind': 'drive#user', 'displayName': 'Paul Philion', 'photoLink': 'https://lh3.googleusercontent.com/a/ACg8ocLYM6c70Ol65XTA5PdXSfSs34okgu-lGIolx1YHNpLPbn8pHQ=s64', 'me': True, 'permissionId': '16770134505765193969', 'emailAddress': 'philion@seattlecommunitynetwork.org'},
+# *** 'shared': True,
+# 'ownedByMe': False
+
+
+
+
+def main():
+    """For testing gdocs"""
+    import sys
+    app_config = AppConfig()
+    g_drive = GoogleDrive(*app_config.config_dir())
+
+    if len(sys.argv) > 0:
+        for item in sys.argv[1:]:
+            log.warning(f"Downloading >> {item} << ")
+            g_page = g_drive.get_doc(doc_id=item, mimeType=MIMETYPE_DOCX)
+            print(g_page)
+
+
+if __name__ == "__main__":
+    main()

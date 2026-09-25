@@ -1,11 +1,11 @@
-import importlib.metadata
+import importlib.metadata  # noqa: F401
 import logging
 
 import typer
 from typing_extensions import Annotated
 
-from wikinator.config import AppConfig, __app_name__
-from wikinator.docxit import DocxitConverter, convert_page
+from wikinator.config import AppConfig
+from wikinator.docxit import convert_page
 from wikinator.gdrive import MIMETYPE_DOCX, GoogleDrive
 from wikinator.wiki import GraphDB as GraphDB
 from wikinator.wiki import GraphIngester
@@ -78,7 +78,7 @@ def trace_callback(value: bool) -> None:
 @app.command()
 def upload(
     source: str,
-    wikiroot: str = "/",
+    path: Annotated[str, typer.Option("--path", help="Path to upload to, defaults to '/' (root)")] = None,
     db_url: Annotated[str, typer.Option("--db", help="URL of the GraphQL database")] = app_config.get('db_url'),
     db_token: Annotated[str, typer.Option("--token", help="URL of the GraphQL database")] = app_config.get('db_token'),
     output: Annotated[bool, typer.Option("-o", help="Make a local copy of the converted file")] = False,
@@ -93,7 +93,7 @@ def upload(
     For example, with source=/src and wikiroot=/wiki/root,
     a DOCX file at /src/dir/some_file.docx will be uploaded to /wiki/root/dir/some_file on the wiki.
     """
-    GraphIngester(url=db_url, token=db_token, output=output).convert_directory(source, wikiroot)
+    GraphIngester(url=db_url, token=db_token, output=output).convert_local_files(source, path)
     raise typer.Exit()
 
 
