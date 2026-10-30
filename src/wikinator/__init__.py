@@ -8,7 +8,8 @@ from typing_extensions import Annotated
 
 from wikinator.config import AppConfig, __app_name__
 from wikinator.docxit import DocxitFileHandler
-from wikinator.dispatcher import CopyHandler, FileDispatcher
+from wikinator.dispatcher import CopyHandler, FileDispatcher, NoOpHandler
+from wikinator.nextcloud import NextCloudHandler, NextCloudImageConverter, NextCloudImageHandler
 
 __app_version__ = importlib.metadata.version(__app_name__)
 
@@ -120,17 +121,25 @@ def common(
 def convert(
     source: Path = typer.Option(help="Path to search for docx files. Defaults to current dir.", default=os.getcwd()),
     target: Path = typer.Option(help="Path for converted files."),
-    ignored: Path = typer.Option(help="Path to copy unprocessed files. Optional.", default=None),
+    #ignored: Path = typer.Option(help="Path to copy unprocessed files. Optional.", default=None),
 ) -> None:
     log.info(f"Converting source: {source} => target: {target}")
-    if ignored:
-        log.info(f"Copying unprocessed files to: {ignored}")
 
     dispatcher = FileDispatcher()
     dispatcher.register(".docx", DocxitFileHandler(target))
-    if ignored:
-        dispatcher.setDefaultHandler(CopyHandler(ignored))
-    #dispatcher.setDefaultHandler(NextCloudHandler(target))
+
+    imageConverter = NextCloudImageConverter()
+    dispatcher.register(".heic", imageConverter)
+    dispatcher.register(".heif", imageConverter)
+
+    imageCopier = NextCloudImageHandler()
+    dispatcher.register(".png", imageCopier)
+    dispatcher.register(".jpeg", imageCopier)
+    dispatcher.register(".jpg", imageCopier)
+
+    dispatcher.register(".zip", NoOpHandler())
+    dispatcher.setDefaultHandler(NextCloudHandler())
+
     dispatcher.walk(source)
 
     raise typer.Exit()

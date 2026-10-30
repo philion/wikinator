@@ -35,10 +35,12 @@ def get_ext(path:Path):
 
 
 class FileHandler:
-    def handle_file(path:Path, local_path:str):
-        #print("!!! FileHandler - path:", path, "local_path:", local_path)
+    def handle_file(self, path:Path, local_path:str):
+        # NO-OP
         pass
 
+class NoOpHandler(FileHandler):
+    pass
 
 class CopyHandler(FileHandler):
     def __init__(self, target:Path):

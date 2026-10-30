@@ -16,9 +16,11 @@ dependencies = [
     "humanize",
     "markdownify>=1.2.2",
     "pillow",
+    "pillow-heif>=1.8.1",
     "pytest",
     "python-docx",
     "typer-slim",
+    "webdavclient3>=3.14.7",
 ]
 
 [project.urls]
