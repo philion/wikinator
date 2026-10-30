@@ -72,7 +72,7 @@ class Page:
         self.description = description
         self.comments = []
         self.images = {}
-        self.isImageEmbedded = False
+        self.isImageEmbedded = True
 
 
     @classmethod

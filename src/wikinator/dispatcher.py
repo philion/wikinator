@@ -46,7 +46,7 @@ class CopyHandler(FileHandler):
 
     def handle_file(self, path:Path, local_path:str):
         target_path = Path(self.target, local_path, path.name)
-        log.info(f"Copying {path} to {target_path}")
+        log.debug(f"Copying {path} ||| {local_path} to {target_path}")
         path.copy(target_path)
 
 

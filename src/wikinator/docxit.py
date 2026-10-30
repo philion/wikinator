@@ -223,6 +223,9 @@ def convert(doc:docx.Document, page: Page) -> Page:
         #log.warning(f"BLOCK: {block.anchor()} - {block.comments}")
         markdown.append(block.comments_from_doc(doc))
 
+    # add the images
+    markdown.extend(embedded_images(doc))
+
     page.content = "\n\n".join(markdown)
 
     return page
