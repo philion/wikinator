@@ -216,7 +216,7 @@ def convert(doc:docx.Document, page: Page) -> Page:
             #log.debug(f"!!! section ptr: {block}")
             pass
         else:
-            log.warning("Unknown block:", page.title, block.tag)
+            log.warning(f"Unknown block: {page.title}, {block.tag}")
 
     # append comments as footnotes
     for block in page.comments:
@@ -529,8 +529,11 @@ class NumberingCache:
         self.numbering[id][level] = format
 
 
-    def get(self, id: int, level: int) -> NumberingDef:
-        return self.numbering[id][level]
+    def get(self, id: int, level: int) -> NumberingDef | None:
+        try:
+            return self.numbering[id][level]
+        except KeyError:
+            return None
 
 
 class DefaultNumbering(NumberingCache):
@@ -722,6 +725,56 @@ class StyledText:
 
 KNOWN_MONO_FONTS = ["Courier New"] # TODO: More fonts
 
+def subpath(path:Path, root:Path) -> str:
+    """
+    Given a path and a root, determine the subpath of that path relative to the root
+    path: /some/full/path/to/a/file
+    root: /some/full/path
+    result: to/a/file
+    """
+    # NOTE: Adding trailing '/' removes leading / from local_path.
+    # Otherwise /local/path is interpreted as absolute
+    return path.replace(str(root.absolute()) + "/", "")
+    # FIXME: try relative()
+
+
+def repath(path:Path, old_root:Path, root:Path) -> Path:
+    """
+    Given a path, an old_root and a new_root, determine a new path.
+    """
+    local_path = subpath(path, old_root)
+    return Path(root, local_path)
+
+
+def is_ext(full_path:Path, ext:str) -> bool:
+    return full_path.suffix.lower() == ext
+
+
+def is_docx(full_path:Path) -> bool:
+    return is_ext(full_path, ".docx")
+
+
+def convert_and_copy(source:Path, target:Path, ignored:Path) -> Page | None:
+    for root, dirs, files in os.walk(source):
+        local_path = subpath(root, source)
+        target_root = Path(target, local_path)
+        if ignored:
+            ignored_root = Path(ignored, local_path)
+
+        print(">>>>", local_path)
+
+        for file in files:
+            file_path = Path(root, file)
+            if is_docx(file_path):
+                dest = Path(target_root, file)
+                log.info(f"CONVERT {file_path} >>> {dest}")
+                # load, convert, write
+            else:
+                # copy to ignored
+                dest = Path(ignored_root, file)
+                log.info(f"IGNORED {file_path} >>> {dest}")
+                # FIXME file_path.copy(dest)
+
 
 class DocxitConverter(Converter):
     def convert(self, infile:Path, outroot:Path) -> Page:
@@ -741,10 +794,21 @@ class DocxitConverter(Converter):
         for the document with all attachments embedded.
         Given an MD file, just load a page with it.
         """
-        match full_path.suffix.lower():
-            case ".docx":
-                return convert_file(full_path)
-            case ".md":
-                return Page.load_file(full_path)
-            case _:
-                log.info(f"Skipping, unknown file extension: {full_path}")
+        if is_docx(full_path):
+            return convert_file(full_path)
+        else:
+            log.debug(f"Skipping, not a .docx file: {full_path}")
+            return None
+
+
+class DocxitFileHandler():
+    def __init__(self, target:Path):
+        self.target = target
+
+    def handle_file(self, path:Path, local_path:str):
+        log.info(f"Handling file: {path}")
+        page = DocxitConverter.load_file(path)
+        name = path.name.replace(".docx", ".md")
+        target_path = Path(self.target, local_path, name)
+        #print(">>> WRITE:", target_path)
+        page.write_file(target_path)

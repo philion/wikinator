@@ -1,16 +1,16 @@
 import importlib.metadata
 import logging
+import os
+from pathlib import Path
 
 import typer
 from typing_extensions import Annotated
 
 from wikinator.config import AppConfig, __app_name__
-from wikinator.docxit import DocxitConverter, convert_page
-from wikinator.gdrive import MIMETYPE_DOCX, GoogleDrive
-from wikinator.wiki import GraphDB as GraphDB
-from wikinator.wiki import GraphIngester
+from wikinator.docxit import DocxitFileHandler
+from wikinator.dispatcher import CopyHandler, FileDispatcher
 
-#__app_version__ = importlib.metadata.version(__app_name__)
+__app_version__ = importlib.metadata.version(__app_name__)
 
 
 app_config = AppConfig()
@@ -74,27 +74,29 @@ def trace_callback(value: bool) -> None:
         comms_trace.setLevel(logging.INFO)
 
 
+### DISABLED, for now
+
 #- upload  : from files -> graphql
-@app.command()
-def upload(
-    source: str,
-    wikiroot: str = "/",
-    db_url: Annotated[str, typer.Option("--db", help="URL of the GraphQL database")] = app_config.get('db_url'),
-    db_token: Annotated[str, typer.Option("--token", help="URL of the GraphQL database")] = app_config.get('db_token'),
-    output: Annotated[bool, typer.Option("-o", help="Make a local copy of the converted file")] = False,
-) -> None:
-    """
-    Convert and upload a file hierarchy to a GraphQL wiki.
-    Given a source directrory, walk the directory tree and
-    for each file:
-    - if MD or image file, upload at the same path relative to the wikiroot path
-    - If DOCX, convert to MD and upload at the same path...
-    - Unknown files are skipped.
-    For example, with source=/src and wikiroot=/wiki/root,
-    a DOCX file at /src/dir/some_file.docx will be uploaded to /wiki/root/dir/some_file on the wiki.
-    """
-    GraphIngester(url=db_url, token=db_token, output=output).convert_directory(source, wikiroot)
-    raise typer.Exit()
+# @app.command()
+# def upload(
+#     source: str,
+#     wikiroot: str = "/",
+#     db_url: Annotated[str, typer.Option("--db", help="URL of the GraphQL database")] = app_config.get('db_url'),
+#     db_token: Annotated[str, typer.Option("--token", help="URL of the GraphQL database")] = app_config.get('db_token'),
+#     output: Annotated[bool, typer.Option("-o", help="Make a local copy of the converted file")] = False,
+# ) -> None:
+#     """
+#     Convert and upload a file hierarchy to a GraphQL wiki.
+#     Given a source directrory, walk the directory tree and
+#     for each file:
+#     - if MD or image file, upload at the same path relative to the wikiroot path
+#     - If DOCX, convert to MD and upload at the same path...
+#     - Unknown files are skipped.
+#     For example, with source=/src and wikiroot=/wiki/root,
+#     a DOCX file at /src/dir/some_file.docx will be uploaded to /wiki/root/dir/some_file on the wiki.
+#     """
+#     GraphIngester(url=db_url, token=db_token, output=output).convert_directory(source, wikiroot)
+#     raise typer.Exit()
 
 
 
@@ -116,60 +118,20 @@ def common(
 
 @app.command()
 def convert(
-    doc_url: Annotated[str, typer.Argument(help="URL of the google-doc")],
-    db_url: Annotated[str, typer.Option("--db", help="URL of the GraphQL database.")] = app_config.get('db_url'),
-    path: Annotated[str, typer.Option("--path", help="Path to upload to. Defaults to '/' (root)")] = None,
-    name: Annotated[str, typer.Option("--name", help="Name of the uploaded file. Defaults to the document title, scrubbed for URL")] = None,
-    token: Annotated[str, typer.Option("--token", help="Secure token for GraphQL database.")] = None, #app_config.get('db_token'),
-    skip_confim: Annotated[bool, typer.Option("-y", help="Skip confirmation check when path already exists in wiki")] = False,
+    source: Path = typer.Option(help="Path to search for docx files. Defaults to current dir.", default=os.getcwd()),
+    target: Path = typer.Option(help="Path for converted files."),
+    ignored: Path = typer.Option(help="Path to copy unprocessed files. Optional.", default=None),
 ) -> None:
-    """
-    Given the URL of a google doc, and options upload path: download the document, convert it to markdown, and upload
-    the converted file to a GraphQL wiki with /path/name.
+    log.info(f"Converting source: {source} => target: {target}")
+    if ignored:
+        log.info(f"Copying unprocessed files to: {ignored}")
 
-    Example:
-
-        uvx wikinator https://example.com/docker_tutorials.docx --path edu/tutorials
-
-    will create a new wiki entry '/edu/tutorials/docker_tutorials.md' from https://example.com/docker_tutorials.docx
-
-    GraphQL credentials can be set on the command line or configured with the config command. Loading a Googledoc will
-    invoke an authorization flow in the browser to confirm access to document. See README.md#Configuration for details.
-    """
-
-    # NOTE: Using default in the
-    if token is None:
-        token = app_config.get('db_token')
-
-    log.info(f"Downloading {doc_url}")
-    g_page = GoogleDrive(*app_config.config_dir()).get_doc_url(doc_url, MIMETYPE_DOCX)
-
-    # apply name and path params to page, before final conversion
-    # needed so image links are generated correctly
-    if name is not None:
-        g_page.path = name
-
-    if path is not None:
-        g_page.update_path(path)
-
-    log.info(f"Converting {g_page.title}")
-    page = convert_page(g_page)
-
-    db = GraphDB(db_url, token)
-
-    page_id = db.id_for_path(page.path)
-    if page_id:
-        # if path already exists, prompt user for continue:
-        overwrite = skip_confim or typer.confirm(f"The page {page.path} already exists. Do you want to overwrite?")
-        if overwrite:
-            print(f"Updating {db_url}/{page.path}")
-            db.update(page)
-        else:
-            #print(f"{page.path} already exists. Aborting.")
-            raise typer.Abort()
-    else:
-        print(f"Creating {db_url}/{page.path}")
-        db.create(page)
+    dispatcher = FileDispatcher()
+    dispatcher.register(".docx", DocxitFileHandler(target))
+    if ignored:
+        dispatcher.setDefaultHandler(CopyHandler(ignored))
+    #dispatcher.setDefaultHandler(NextCloudHandler(target))
+    dispatcher.walk(source)
 
     raise typer.Exit()
 
@@ -204,6 +166,8 @@ def config(
         print(f"{k}: {app_config.value(k)}")
 
 
+
+
 #- extract : from googledocs -> file system
 # @app.command()
 # def extract(
@@ -229,3 +193,65 @@ def config(
 #     wiki = GraphDB()
 #     for page in GoogleDrive().list_files("application/vnd.google-apps.document"):
 #         wiki.upload(page, wikiroot)
+
+
+### OLD VERSION, coordinating gdocs and graphdb
+
+# @app.command()
+# def convert(
+#     doc_url: Annotated[str, typer.Argument(help="URL of the google-doc")],
+#     db_url: Annotated[str, typer.Option("--db", help="URL of the GraphQL database.")] = app_config.get('db_url'),
+#     path: Annotated[str, typer.Option("--path", help="Path to upload to. Defaults to '/' (root)")] = None,
+#     name: Annotated[str, typer.Option("--name", help="Name of the uploaded file. Defaults to the document title, scrubbed for URL")] = None,
+#     token: Annotated[str, typer.Option("--token", help="Secure token for GraphQL database.")] = None, #app_config.get('db_token'),
+#     skip_confim: Annotated[bool, typer.Option("-y", help="Skip confirmation check when path already exists in wiki")] = False,
+# ) -> None:
+#     """
+#     Given the URL of a google doc, and options upload path: download the document, convert it to markdown, and upload
+#     the converted file to a GraphQL wiki with /path/name.
+
+#     Example:
+
+#         uvx wikinator https://example.com/docker_tutorials.docx --path edu/tutorials
+
+#     will create a new wiki entry '/edu/tutorials/docker_tutorials.md' from https://example.com/docker_tutorials.docx
+
+#     GraphQL credentials can be set on the command line or configured with the config command. Loading a Googledoc will
+#     invoke an authorization flow in the browser to confirm access to document. See README.md#Configuration for details.
+#     """
+
+#     # NOTE: Using default in the
+#     if token is None:
+#         token = app_config.get('db_token')
+
+#     log.info(f"Downloading {doc_url}")
+#     g_page = GoogleDrive(*app_config.config_dir()).get_doc_url(doc_url, MIMETYPE_DOCX)
+
+#     # apply name and path params to page, before final conversion
+#     # needed so image links are generated correctly
+#     if name is not None:
+#         g_page.path = name
+
+#     if path is not None:
+#         g_page.update_path(path)
+
+#     log.info(f"Converting {g_page.title}")
+#     page = convert_page(g_page)
+
+#     db = GraphDB(db_url, token)
+
+#     page_id = db.id_for_path(page.path)
+#     if page_id:
+#         # if path already exists, prompt user for continue:
+#         overwrite = skip_confim or typer.confirm(f"The page {page.path} already exists. Do you want to overwrite?")
+#         if overwrite:
+#             print(f"Updating {db_url}/{page.path}")
+#             db.update(page)
+#         else:
+#             #print(f"{page.path} already exists. Aborting.")
+#             raise typer.Abort()
+#     else:
+#         print(f"Creating {db_url}/{page.path}")
+#         db.create(page)
+
+#     raise typer.Exit()

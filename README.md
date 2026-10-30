@@ -125,6 +125,22 @@ make dist
 ## Development Log
 The development log will be kept here until the 1.0 release.
 
+### 2026-10-27
+Pivoting to a new file-based way of converting, based on moving the wikijs backing files to a git repo.
+
+Basic process is:
+- download a collection of docs from gdocs
+- unzip and copy to expected location in wikijs repo
+- run `wikinator convert --replace path/to/location`
+- review and commit to git for sync to wikijs
+
+The convert command will be updated to:
+- given a path
+- walk the file tree to pick out *.docx files
+- convert and create a resulting .md file
+- if the `--replace` flag is set, remove the original .docx file
+
+
 ### 2026-03-23
 Preparing v0.9.0 release.
 

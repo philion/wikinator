@@ -21,7 +21,8 @@ class Converter:
         if ext == ".docx":
             #docx_queue.append(full_path) # TODO async!
             page = self.convert(full_path, outroot)
-            page.write(outroot)
+            #FIXME page.write(outroot)
+            log.warning(f"Writing {page} to {outroot}")
         else:
             log.debug(f"No processor for {ext}, skipping {full_path}")
 
