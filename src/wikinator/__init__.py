@@ -11,7 +11,7 @@ from wikinator.docxit import DocxitFileHandler
 from wikinator.dispatcher import FileDispatcher, NoOpHandler
 from wikinator.nextcloud import NextCloudHandler, NextCloudImageConverter
 
-__app_version__ = importlib.version(__app_name__)
+__app_version__ = importlib.metadata.version(__app_name__)
 
 app_config = AppConfig()
 log = logging.getLogger(__name__)
@@ -91,23 +91,34 @@ def common(
 
 
 @app.command()
-def convert(
-    source: Path = typer.Option(help="Path to search for docx files. Defaults to current dir.", default=os.getcwd()),
-    target: Path = typer.Option(help="Path for converted files."),
-    root: Path = typer.Option(help="Root path for NextCloud sync."),
-    #ignored: Path = typer.Option(help="Path to copy unprocessed files. Optional.", default=None),
+def upload(
+    #source: Path = typer.Option(help="Path to search for docx files. Defaults to current dir.", default=os.getcwd()),
+    source: Annotated[Path, typer.Argument(help="Path to search for docx files. Defaults to current dir.")] = os.getcwd(),
+    wiki_root: Path = typer.Option(help="Path for wiki files."),
+    nc_root: Path = typer.Option(help="Path for NextCloud upload."),
 ) -> None:
-    log.info(f"Converting source: {source} => target: {target}")
+    """
+    Upload files to a specific target, based on file type.
+
+    uvx wikinator upload some/local/files --wiki-root Public --nc-root Documents
+
+    In the above example:
+    - some/local/files/README.md -> wiki : Public/README.md
+    - some/local/files/about/background.docx -> wiki : Public/about/background.md
+    - some/local/files/accounting/2025.xlsx -> nextcloud : Documents/accounting/2025.xlsx
+    - some/local/files/photos/image321.heic -> nextcloud : Documents/photos/image321.jpeg
+    """
+    log.info(f"Converting source: {source} => wiki_root: {wiki_root}")
 
     dispatcher = FileDispatcher()
-    dispatcher.register(".docx", DocxitFileHandler(target))
+    dispatcher.register(".docx", DocxitFileHandler(wiki_root))
 
-    imageConverter = NextCloudImageConverter(root)
+    imageConverter = NextCloudImageConverter(nc_root)
     dispatcher.register(".heic", imageConverter)
     dispatcher.register(".heif", imageConverter)
 
     dispatcher.register(".zip", NoOpHandler())
-    dispatcher.setDefaultHandler(NextCloudHandler(root))
+    dispatcher.setDefaultHandler(NextCloudHandler(nc_root))
 
     dispatcher.walk(source)
 
@@ -144,6 +155,8 @@ def config(
         print(f"{k}: {app_config.value(k)}")
 
 
+
+### --- OLD ---
 
 #- extract : from googledocs -> file system
 # @app.command()
