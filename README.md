@@ -26,10 +26,7 @@ Given a directory, convert supported file types into markdown-based files while 
 
 ### Supported File Types
 - DOCX files (default for GDocs) are converted to markdown
-- images are extracted, uploaded and embedded in the markdown
-- FUTURE `text` and code file types are wrapped in markdown code blocks
-- FUTURE CSV and XSLT are converted to markdown tables
-- FUTURE for any document that is converted to markdown, a copy of the original is uploaded and attached
+
 
 ### Supported Wiki Import
 - wiki.js (and other GraphQL-based wikis)
@@ -39,22 +36,14 @@ Given a directory, convert supported file types into markdown-based files while 
 ```
 uvx wikinator --help
 uvx wikinator config
+uvx wikinator upload source_dir --wiki-root Public --nc-root Documents
+uvx wikinator upload target_file.docx --wiki-root new/path --nc-root Documents
 
-uvx wikinator convert https://gdoc/full/url --path=wiki/path
-uvx wikinator convert sOmE-googleDoc-Id --path=wiki/path2
-
-uvx wikinator upload target_dir
-uvx wikinator upload target_file.md new/path
 ```
 
-`convert` will take a single URL to a google doc, convert it to markdown, and
-upload that to the configured GraphQL server using the title from the document.
-An optional `path` option is provided to specify to path in the wiki to upload
-the document to: `
-
 `upload` loads a full directory into the wiki. In the above examples:
-- Upload the directoy tree at `target_dir` into the wikipath `target_dir`
-- Upload the file `target_file.docx` into the wiki path `new/path/target_file`
+- Upload the directoy tree at `target_dir` into the wikipath `Public`
+- Upload the file `target_file.docx` into the wiki as `new/path/target_file.md`
 
 Assuming the `en` locale, the final paths in the wiki will be:
 - $GRAPH_DB/en/target_dir/...
