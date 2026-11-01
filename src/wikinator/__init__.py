@@ -8,11 +8,10 @@ from typing_extensions import Annotated
 
 from wikinator.config import AppConfig, __app_name__
 from wikinator.docxit import DocxitFileHandler
-from wikinator.dispatcher import CopyHandler, FileDispatcher, NoOpHandler
-from wikinator.nextcloud import NextCloudHandler, NextCloudImageConverter, NextCloudImageHandler
+from wikinator.dispatcher import FileDispatcher, NoOpHandler
+from wikinator.nextcloud import NextCloudHandler, NextCloudImageConverter
 
-__app_version__ = importlib.metadata.version(__app_name__)
-
+__app_version__ = importlib.version(__app_name__)
 
 app_config = AppConfig()
 log = logging.getLogger(__name__)
@@ -75,32 +74,6 @@ def trace_callback(value: bool) -> None:
         comms_trace.setLevel(logging.INFO)
 
 
-### DISABLED, for now
-
-#- upload  : from files -> graphql
-# @app.command()
-# def upload(
-#     source: str,
-#     wikiroot: str = "/",
-#     db_url: Annotated[str, typer.Option("--db", help="URL of the GraphQL database")] = app_config.get('db_url'),
-#     db_token: Annotated[str, typer.Option("--token", help="URL of the GraphQL database")] = app_config.get('db_token'),
-#     output: Annotated[bool, typer.Option("-o", help="Make a local copy of the converted file")] = False,
-# ) -> None:
-#     """
-#     Convert and upload a file hierarchy to a GraphQL wiki.
-#     Given a source directrory, walk the directory tree and
-#     for each file:
-#     - if MD or image file, upload at the same path relative to the wikiroot path
-#     - If DOCX, convert to MD and upload at the same path...
-#     - Unknown files are skipped.
-#     For example, with source=/src and wikiroot=/wiki/root,
-#     a DOCX file at /src/dir/some_file.docx will be uploaded to /wiki/root/dir/some_file on the wiki.
-#     """
-#     GraphIngester(url=db_url, token=db_token, output=output).convert_directory(source, wikiroot)
-#     raise typer.Exit()
-
-
-
 # Setup global options using callbacks
 @app.callback()
 def common(
@@ -121,6 +94,7 @@ def common(
 def convert(
     source: Path = typer.Option(help="Path to search for docx files. Defaults to current dir.", default=os.getcwd()),
     target: Path = typer.Option(help="Path for converted files."),
+    root: Path = typer.Option(help="Root path for NextCloud sync."),
     #ignored: Path = typer.Option(help="Path to copy unprocessed files. Optional.", default=None),
 ) -> None:
     log.info(f"Converting source: {source} => target: {target}")
@@ -128,17 +102,12 @@ def convert(
     dispatcher = FileDispatcher()
     dispatcher.register(".docx", DocxitFileHandler(target))
 
-    imageConverter = NextCloudImageConverter()
+    imageConverter = NextCloudImageConverter(root)
     dispatcher.register(".heic", imageConverter)
     dispatcher.register(".heif", imageConverter)
 
-    imageCopier = NextCloudImageHandler()
-    dispatcher.register(".png", imageCopier)
-    dispatcher.register(".jpeg", imageCopier)
-    dispatcher.register(".jpg", imageCopier)
-
     dispatcher.register(".zip", NoOpHandler())
-    dispatcher.setDefaultHandler(NextCloudHandler())
+    dispatcher.setDefaultHandler(NextCloudHandler(root))
 
     dispatcher.walk(source)
 
@@ -173,7 +142,6 @@ def config(
 
     for k in app_config.keys():
         print(f"{k}: {app_config.value(k)}")
-
 
 
 
@@ -263,4 +231,29 @@ def config(
 #         print(f"Creating {db_url}/{page.path}")
 #         db.create(page)
 
+#     raise typer.Exit()
+
+
+### DISABLED, for now
+
+#- upload  : from files -> graphql
+# @app.command()
+# def upload(
+#     source: str,
+#     wikiroot: str = "/",
+#     db_url: Annotated[str, typer.Option("--db", help="URL of the GraphQL database")] = app_config.get('db_url'),
+#     db_token: Annotated[str, typer.Option("--token", help="URL of the GraphQL database")] = app_config.get('db_token'),
+#     output: Annotated[bool, typer.Option("-o", help="Make a local copy of the converted file")] = False,
+# ) -> None:
+#     """
+#     Convert and upload a file hierarchy to a GraphQL wiki.
+#     Given a source directrory, walk the directory tree and
+#     for each file:
+#     - if MD or image file, upload at the same path relative to the wikiroot path
+#     - If DOCX, convert to MD and upload at the same path...
+#     - Unknown files are skipped.
+#     For example, with source=/src and wikiroot=/wiki/root,
+#     a DOCX file at /src/dir/some_file.docx will be uploaded to /wiki/root/dir/some_file on the wiki.
+#     """
+#     GraphIngester(url=db_url, token=db_token, output=output).convert_directory(source, wikiroot)
 #     raise typer.Exit()

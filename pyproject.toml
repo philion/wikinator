@@ -3,7 +3,7 @@ name = "wikinator"
 version = "0.9.0"
 description = "Convert Google docs to markdown"
 readme = "README.md"
-requires-python = ">=3.14"
+requires-python = ">=3.13"
 dependencies = [
     "aiohttp>=3.13.3",
     "confuse",
@@ -14,13 +14,14 @@ dependencies = [
     "google-auth-oauthlib",
     "gql[all]",
     "humanize",
+    "importlib-metadata>=10.1.0",
     "markdownify>=1.2.2",
+    "nc-py-api>=0.30.3",
     "pillow",
     "pillow-heif>=1.8.1",
     "pytest",
     "python-docx",
     "typer-slim",
-    "webdavclient3>=3.14.7",
 ]
 
 [project.urls]

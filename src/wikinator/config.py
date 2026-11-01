@@ -1,11 +1,10 @@
-import importlib
-
+from importlib.metadata import version
 import confuse
 import os
 
 
 __app_name__ = "wikinator"
-__app_version__ = importlib.metadata.version(__app_name__)
+__app_version__ = version(__app_name__)
 
 __config__ = confuse.Configuration(__app_name__, __name__)
 
@@ -16,16 +15,18 @@ class AppConfig:
 
 
     def config_dir(self):
-        from .gdrive import config_link
-        return __config__.config_dir(), config_link
+        return __config__.config_dir()
 
 
     def _load(self):
-        cdir, _ = self.config_dir()
+        cdir = self.config_dir()
         template = {
             "db_url": f"Configure db_url in ${cdir}",
             "db_token": f"Configure db_token in ${cdir}",
             "log_level": "warning",
+            "nextcloud_url": None,
+            "nextcloud_user": None,
+            "nextcloud_token": None,
         }
         __config__.set_env()
         config = __config__.get(template)
@@ -69,3 +70,17 @@ class AppConfig:
             for k, v in self._config.items():
                 if k not in self._SKIP_NAMES:
                     f.write(f"{k}: {v}\n")
+
+
+# simple testing
+# def main():
+#     config = AppConfig()
+#     print(config._config)
+
+#     nextcloud_url = config.get('nextcloud_url')
+#     if nextcloud_url:
+#         print("nextcloud_url", nextcloud_url)
+
+
+# if __name__ == "__main__":
+#     main()

@@ -27,6 +27,18 @@ def convert_to(source:Path, format:str="jpeg", quality:int=85) -> Path:
     return Path(tmp_file.name)
 
 
+def load_as(source:Path, format:str, quality:int) -> BytesIO:
+    """
+    Load an image file, and convert it to the expected format.
+    Return an i/o buffer with the converted image
+    """
+    image = Image.open(source)
+    buffer = BytesIO()
+    image.save(buffer, format=format, quality=quality, optimize=True)
+    buffer.seek(0)
+    return buffer
+
+
 # from doxcit
 
 def compress(content:bytes, content_type:str, quality:int=75) -> bytes:

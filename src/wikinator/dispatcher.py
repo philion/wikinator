@@ -12,10 +12,8 @@ def subpath(path:Path, root:Path) -> str:
     root: /some/full/path
     result: to/a/file
     """
-    # NOTE: Adding trailing '/' removes leading / from local_path.
-    # Otherwise /local/path is interpreted as absolute
-    return path.replace(str(root.absolute()) + "/", "")
-    # FIXME: try relative()
+    return path.relative_to(root)
+    # FIXME - remove, use path function
 
 
 def repath(path:Path, old_root:Path, root:Path) -> Path:
@@ -72,7 +70,7 @@ class FileDispatcher:
         else:
             # path is a directory, do a full walk
             for root, dirs, files in os.walk(path):
-                local_path = subpath(root, path)
+                local_path = subpath(Path(root), path)
                 for file in files:
                     file_path = Path(root, file)
                     self.dispatch(file_path, local_path)
