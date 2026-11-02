@@ -32,15 +32,15 @@ MIMETYPE_FOLDER = "application/vnd.google-apps.folder"
 
 
 class GoogleDrive:
-    def __init__(self, config_dir, gcreds):
+    def __init__(self, config_dir):
         self.token_file = os.path.join(config_dir, "token.json")
-        self.creds = gcreds
+        self.creds = "gcreds"
         self.service = self._build_service()
 
 
     @classmethod
     def from_config(cls, config:AppConfig):
-        return cls(*config.config_dir())
+        return cls(config.config_dir())
 
 
     def _validate_token(self):

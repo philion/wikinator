@@ -18,8 +18,7 @@ Options:
   --help     Show this message and exit.
 
 Commands:
-  upload   Convert and upload a file hierarchy to a GraphQL wiki.
-  convert  Given the URL of a specific gdoc:
+  upload   Convert and upload a file hierarchy to a wiki and NextCloud.
   config   View or set configuration settings.
 ```
 
@@ -27,10 +26,7 @@ Given a directory, convert supported file types into markdown-based files while 
 
 ### Supported File Types
 - DOCX files (default for GDocs) are converted to markdown
-- images are extracted, uploaded and embedded in the markdown
-- FUTURE `text` and code file types are wrapped in markdown code blocks
-- FUTURE CSV and XSLT are converted to markdown tables
-- FUTURE for any document that is converted to markdown, a copy of the original is uploaded and attached
+
 
 ### Supported Wiki Import
 - wiki.js (and other GraphQL-based wikis)
@@ -40,22 +36,14 @@ Given a directory, convert supported file types into markdown-based files while 
 ```
 uvx wikinator --help
 uvx wikinator config
+uvx wikinator upload source_dir --wiki-root Public --nc-root Documents
+uvx wikinator upload target_file.docx --wiki-root new/path --nc-root Documents
 
-uvx wikinator convert https://gdoc/full/url --path=wiki/path
-uvx wikinator convert sOmE-googleDoc-Id --path=wiki/path2
-
-uvx wikinator upload target_dir
-uvx wikinator upload target_file.md new/path
 ```
 
-`convert` will take a single URL to a google doc, convert it to markdown, and
-upload that to the configured GraphQL server using the title from the document.
-An optional `path` option is provided to specify to path in the wiki to upload
-the document to: `
-
 `upload` loads a full directory into the wiki. In the above examples:
-- Upload the directoy tree at `target_dir` into the wikipath `target_dir`
-- Upload the file `target_file.docx` into the wiki path `new/path/target_file`
+- Upload the directoy tree at `target_dir` into the wikipath `Public`
+- Upload the file `target_file.docx` into the wiki as `new/path/target_file.md`
 
 Assuming the `en` locale, the final paths in the wiki will be:
 - $GRAPH_DB/en/target_dir/...
@@ -123,7 +111,51 @@ make dist
 **TODO**: Configure a GitHub Action for releases based on merges-to-main.
 
 ## Development Log
-The development log will be kept here until the 1.0 release.
+The development log will be kept here until the 1.0 release. At which point, each release will have dev and release notes in their own doc.
+
+### 2026-11-01
+Keeping the file-based source, updating the ignored feature to copy to into Next
+
+Currently, the code is organized into FileHandlers based on file type (file name extention). A Dispatcher walks the input file tree, and dispatches each file, based on type, to a registered handler. Each handler is configured to handle the file as expected. Currently supported:
+- copy file to local file system
+- convert DOCX to MD
+- convert HEIC to JPEG
+- upload file to NextCloud
+- upload file to wikijs/graphql
+
+These can be chained together, in `typer` command definations,to provide specialized behaviors. For example: convert an image to JPEG and upload to a specific location in NextCloud.
+
+Significant CLI arguments:
+- `$1`: source - The source directory or file.
+- `--nc-root` - NextCloud root; prepend to file paths uploaded to NextCloud
+- `--wiki-root` - wiki root; all markdown/wiki files should go here
+
+Example:
+```
+uvx wikinator convert some/local/files --wiki-root Public --nc-root Documents
+```
+In the above example:
+- `some/local/files/README.md` -> wiki : `Public/README.md`
+- `some/local/files/accounting/2025.xlsx` -> nextcloud : `Documents/accounting/2025.xlsx`
+
+Updating docs/help and preparing for merge and release 0.10.0.
+
+
+### 2026-10-27
+Pivoting to a new file-based way of converting, based on moving the wikijs backing files to a git repo.
+
+Basic process is:
+- download a collection of docs from gdocs
+- unzip and copy to expected location in wikijs repo
+- run `wikinator convert --replace path/to/location`
+- review and commit to git for sync to wikijs
+
+The convert command will be updated to:
+- given a path
+- walk the file tree to pick out *.docx files
+- convert and create a resulting .md file
+- if the `--replace` flag is set, remove the original .docx file
+
 
 ### 2026-03-23
 Preparing v0.9.0 release.

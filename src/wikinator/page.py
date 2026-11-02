@@ -72,7 +72,7 @@ class Page:
         self.description = description
         self.comments = []
         self.images = {}
-        self.isImageEmbedded = False
+        self.isImageEmbedded = True
 
 
     @classmethod
@@ -154,7 +154,7 @@ class Page:
         """
         determine the file name for this page
         If `root` is supplied, that file name
-        will be realtive to that path
+        will be relative to that path
         """
         # replace chars in path
         filename = self.fullpath(root) + '.md'
